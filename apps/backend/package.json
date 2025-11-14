@@ -5,9 +5,19 @@
   },
   "dependencies": {
     "@docker/node-sdk": "^0.0.17",
-    "hono": "^4.10.5"
+    "@logtape/logtape": "^1.2.0",
+    "dockerode": "^4.0.9",
+    "hono": "^4.10.5",
+    "shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/dockerode": "^3.3.45"
+  },
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }

@@ -12,7 +12,9 @@
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.90.7",
     "daisyui": "^5.5.0",
+    "lucide-react": "^0.553.0",
     "preact": "^10.27.2",
+    "shared": "workspace:*",
     "tailwindcss": "^4.1.17"
   },
   "devDependencies": {

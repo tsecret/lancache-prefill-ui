@@ -1,0 +1,13 @@
+{
+  "name": "lancache-prefill-app",
+  "private": true,
+  "workspaces": ["apps/*", "shared"],
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

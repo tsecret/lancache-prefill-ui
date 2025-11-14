@@ -1,0 +1,17 @@
+# Use Bun as the base image
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+COPY package.json bun.lock /app/
+COPY shared shared
+
+COPY /apps/backend/package.json /apps/backend/tsconfig.json /app/apps/backend/
+
+RUN bun install
+
+COPY /apps/backend/src /app/apps/backend/
+
+WORKDIR /app/apps/backend
+EXPOSE 3000
+
+CMD ["bun", "run", "index.ts"]

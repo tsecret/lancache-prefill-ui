@@ -1,25 +1,30 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { CloudCheck, CloudDownload } from 'lucide-react'
+import type { Image } from 'shared/types'
 
 export default function Images(){
   const { isPending, isError, data, error } = useQuery({
     queryKey: ['images'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Image[]> => {
       const res = await fetch('/api/images')
       return await res.json()
     },
   })
 
-  console.log('data', data)
+  if (isPending) return <h1>Loading...</h1>
+  if (isError) return <span>Error: {error.message}</span>
 
-  return <div className="border-2">
+  return <div className="p-2 space-y-2">
     {
-      data.for
+      data?.map(image => (
+        <div className="border-2 p-4 rounded-md flex flex-row items-center space-x-4">
+          { image.isPulled ? <CloudCheck className="text-success" /> : <CloudDownload className="text-error" /> }
+          <span className="flex-1">{image.tag}</span>
+
+          { image.isPulled ? <button className="btn btn-soft btn-sm">Delete</button> : <button className="btn btn-soft btn-sm">Pull</button> }
+
+        </div>
+      ))
     }
   </div>
 }
