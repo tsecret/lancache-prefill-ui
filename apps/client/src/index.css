@@ -36,3 +36,13 @@
   --depth: 0;
   --noise: 0;
 }
+
+@layer components {
+  .page {
+    @apply p-4 flex flex-col items-center
+  }
+
+  .row {
+    @apply flex flex-row items-center
+  }
+}

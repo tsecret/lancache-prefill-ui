@@ -1,15 +1,10 @@
 import { Hono } from 'hono';
-import { docker } from './docker';
 import containers from './routes/containers';
 import images from './routes/images';
 import { check, configureLogger } from './utils';
 
 configureLogger()
 const app = new Hono()
-
-docker.initialize().catch((err) => {
-  console.error('Failed to initialize Docker connection:', err)
-})
 
 app.get('/', (c) => {
   return c.text('ok')

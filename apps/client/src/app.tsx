@@ -1,18 +1,20 @@
-import {
-  QueryClient,
-  QueryClientProvider
-} from '@tanstack/react-query'
-import Images from './components/Images'
 
-const queryClient = new QueryClient()
+import { Route, Routes } from 'react-router'
+import Header from './components/Header'
+import DashboardPage from './pages/Dashboard.page'
+import SettingsPage from './pages/Settings.page'
+
+
 
 export function App() {
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <main>
-        <Images />
-      </main>
-    </QueryClientProvider>
+    <main>
+      <Header />
+      <Routes>
+        <Route path='/' element={<DashboardPage />} />
+        <Route path='/settings' element={<SettingsPage />} />
+      </Routes>
+    </main>
     )
 }

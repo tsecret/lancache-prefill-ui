@@ -14,19 +14,33 @@ export const configureLogger = async () => {
   });
 }
 
+export const sleep = async (ms: number = 2000) => {
+  await new Promise(res => setTimeout(res, ms))
+}
+
 export const populateContainerWithLog = (_container: Container, log: string): Container => {
   const container = { ..._container }
 
-  let match = log.match(/Downloading..:\s(\d+)%/)
+  let match = log.match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
   if (match){
-    container.isDownloading = true
-    container.downloadPercent = parseInt(match[1])
+    const [, percent, time, downloadedAmount, downloadLeftAmount, unitAmount, speed, unitSpeed] = match
+
+    container.progress = {
+      isDownloading: true,
+      percent: parseInt(percent),
+      time,
+      downloadedAmount: parseFloat(downloadedAmount),
+      downloadLeftAmount: parseFloat(downloadLeftAmount),
+      unitAmount,
+      speed: parseFloat(speed),
+      unitSpeed
+    }
   }
 
   return container
 }
 
-export const getContainerSettingsFromTag = (tag: string): { configPath: string, containerName: string } => {
+export const getContainerSettingsFromTag = (tag: string): { configPath: string, cachePath: string, containerName: string } => {
   const BASE_CONFIGS_PATH = process.env.CONFIGS_PATH
   let path = 'unsorted'
 
@@ -41,7 +55,11 @@ export const getContainerSettingsFromTag = (tag: string): { configPath: string, 
       path = 'steam'
   }
 
-  return { configPath: BASE_CONFIGS_PATH + `/${path}/config`, containerName: `lancache-${path}-prefill`  }
+  return {
+    configPath: BASE_CONFIGS_PATH + `/${path}/config`,
+    cachePath: BASE_CONFIGS_PATH + `/cache`,
+    containerName: `lancache-${path}-prefill`
+  }
 }
 
 export const check = async (): Promise<boolean> => {
@@ -57,18 +75,21 @@ export const check = async (): Promise<boolean> => {
     return false
   }
 
-  logger.info('Checking for updates')
+  logger.info('Checking process started');
 
-  const images = await docker.imageList()
-  for (const image of images){
-    if (!image.isPulled){
-      logger.warn(`Skipping ${image.tag} because it is not pulled`)
-      continue
+  (async () => {
+    const images = await docker.imageList()
+    for (const image of images){
+      if (!image.isPulled){
+        logger.warn(`Skipping ${image.tag} because it is not pulled`)
+        continue
+      }
+
+      logger.info(`Checking updates for ${image.tag}`)
+      await docker.containerRun(image.tag)
     }
 
-    logger.info(`Checking updates for ${image.tag}`)
-    await docker.containerRun(image.tag)
-  }
+  })();
 
   logger.info('Check complete')
   return true

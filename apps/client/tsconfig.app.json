@@ -8,8 +8,8 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
     "paths": {
-      "react": ["./node_modules/preact/compat/"],
-      "react-dom": ["./node_modules/preact/compat/"]
+      "react": ["../../node_modules/preact/compat/"],
+      "react-dom": ["../../node_modules/preact/compat/"]
     },
 
     /* Bundler mode */

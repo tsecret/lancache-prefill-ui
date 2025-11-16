@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { docker } from '../docker'
-import { getLogger } from '@logtape/logtape'
 
 const app = new Hono()
 

@@ -14,7 +14,7 @@ export default function Images(){
   if (isPending) return <h1>Loading...</h1>
   if (isError) return <span>Error: {error.message}</span>
 
-  return <div className="p-2 space-y-2">
+  return <div className="p-2 space-y-2 w-full max-w-2xl">
     {
       data?.map(image => (
         <div className="border-2 p-4 rounded-md flex flex-row items-center space-x-4">

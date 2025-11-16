@@ -1,4 +1,3 @@
-import { DockerClient } from "@docker/node-sdk";
 import { getLogger } from "@logtape/logtape";
 import type { Container, Image } from "shared/types";
 import { getContainerSettingsFromTag } from "./utils";
@@ -18,12 +17,9 @@ class DockerService {
       return this.client
     }
 
-    this.client = new Docker({socketPath: '/var/run/docker.sock'})
+    // this.client = new Docker({socketPath: '/var/run/docker.sock'})
+    this.client = new Docker({host: 'http://192.168.31.103', port: 2375})
     return this.client
-  }
-
-  async initialize(): Promise<void> {
-    await this.getClient()
   }
 
   async imageList(): Promise<Image[]> {
@@ -73,12 +69,13 @@ class DockerService {
 
   async containerList(): Promise<Container[]> {
     const client = await this.getClient()
-    const containers = await client.listContainers()
+    const containers = await client.listContainers({all: true})
 
     return containers
       .filter(c => c.Image?.includes('-lancache-prefill-raspi'))
       .map(c => ({
         id: c.Id?.slice(0, 12) || '',
+        image: c.Image,
         name: c.Names?.length ? c.Names[0] : '',
         created: c.Created || 0,
         state: (c.State as "created" | "running" | "paused" | "restarting" | "exited" | "removing" | "dead") || 'dead',
@@ -88,7 +85,7 @@ class DockerService {
 
   async containerRun(tag: string): Promise<boolean> {
     const client = await this.getClient()
-    const { configPath, containerName } = getContainerSettingsFromTag(tag)
+    const { configPath, cachePath, containerName } = getContainerSettingsFromTag(tag)
 
     this.logger.info(`Starting container ${tag}`)
 
@@ -96,11 +93,15 @@ class DockerService {
       {
         Image: tag,
         name: containerName,
-        Cmd: ['prefill', '--no-ansi'],
+        Cmd: ['prefill'],
+        Tty: true,
         HostConfig: {
           AutoRemove: true,
           NetworkMode: 'host',
-          Binds: [`${configPath}:/Config`]
+          Binds: [
+            `${configPath}:/app/Config`,
+            `${cachePath}:/root/.cache`
+          ]
         }
       }
     )
@@ -117,7 +118,9 @@ class DockerService {
 
   async containerStop(id: string){
     const client = await this.getClient()
+    this.logger.info(`Stopping container ${id}`)
     await client.getContainer(id).stop()
+    this.logger.info(`Container ${id} was stopped`)
   }
 
   async getContainerLog(id: string): Promise<string|null>{
@@ -127,7 +130,9 @@ class DockerService {
       .getContainer(id)
       .logs({ follow: false, stdout: true, tail: 5 })
 
-    const logs = r.toString().split('\n')
+    const logs = r.toString()
+      .split('\n')
+      .map(line => line.trim().replace(/\u001b\[.*?m/g, ''))
 
     if (logs.length > 2)
       return logs[logs.length-2].trim()
