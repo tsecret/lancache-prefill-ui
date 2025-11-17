@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { docker } from '../docker'
+import { docker } from '../clients/docker'
 import { populateContainerWithLog } from '../utils'
 
 const app = new Hono()

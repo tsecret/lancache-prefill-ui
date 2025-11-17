@@ -1,6 +1,6 @@
 import { ansiColorFormatter, configureSync, getConsoleSink, getLogger } from "@logtape/logtape";
-import { Container } from "shared/types";
-import { docker } from "./docker";
+import { Container, ImageTag } from "shared/types";
+import { docker } from "./clients/docker";
 
 const logger = getLogger(['lancache-manager']);
 
@@ -40,16 +40,16 @@ export const populateContainerWithLog = (_container: Container, log: string): Co
   return container
 }
 
-export const getContainerSettingsFromTag = (tag: string): { configPath: string, cachePath: string, containerName: string } => {
+export const getContainerSettingsFromTag = (tag: ImageTag): { configPath: string, cachePath: string, containerName: string } => {
   const BASE_CONFIGS_PATH = process.env.CONFIGS_PATH
   let path = 'unsorted'
 
   switch (tag) {
-    case 'tsecretino/steam-lancache-prefill-raspi':
+    case ImageTag.STEAM:
       path = 'steam'; break;
-    case 'tsecretino/epic-lancache-prefill-raspi':
+    case ImageTag.EPIC:
       path = 'epic'; break;
-    case 'tsecretino/battlenet-lancache-prefill-raspi':
+    case ImageTag.BATTLENET:
       path = 'battlenet'; break;
     default:
       path = 'steam'

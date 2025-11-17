@@ -1,3 +1,4 @@
-export * from './image.type'
 export * from './container.type'
+export * from './games.type'
+export * from './image.type'
 export * from './prefill.type'

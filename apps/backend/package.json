@@ -6,6 +6,7 @@
   "dependencies": {
     "@docker/node-sdk": "^0.0.17",
     "@logtape/logtape": "^1.2.0",
+    "axios": "^1.13.2",
     "dockerode": "^4.0.9",
     "hono": "^4.10.5",
     "shared": "workspace:*"

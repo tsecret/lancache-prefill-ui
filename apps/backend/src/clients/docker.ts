@@ -1,6 +1,6 @@
 import { getLogger } from "@logtape/logtape";
 import type { Container, Image } from "shared/types";
-import { getContainerSettingsFromTag } from "./utils";
+import { getContainerSettingsFromTag } from "../utils";
 import Docker = require('dockerode');
 
 class DockerService {
@@ -17,8 +17,10 @@ class DockerService {
       return this.client
     }
 
-    // this.client = new Docker({socketPath: '/var/run/docker.sock'})
-    this.client = new Docker({host: 'http://192.168.31.103', port: 2375})
+    this.client = Bun.env.DEV === 'true' ?
+      new Docker({host: 'http://192.168.31.103', port: 2375}) :
+      new Docker({socketPath: '/var/run/docker.sock'})
+
     return this.client
   }
 

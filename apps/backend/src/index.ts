@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import containers from './routes/containers';
 import images from './routes/images';
+import games from './routes/games';
 import { check, configureLogger } from './utils';
 
 configureLogger()
@@ -17,5 +18,6 @@ app.post('/api/check', async (c) => {
 
 app.route('/api/containers', containers)
 app.route('/api/images', images)
+app.route('/api/games', games)
 
 export default app
