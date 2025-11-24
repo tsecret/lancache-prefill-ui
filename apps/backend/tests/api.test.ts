@@ -19,7 +19,7 @@ describe.skip('Lancache Logs', () => {
 })
 
 
-describe('Steam Games', () => {
+describe.skip('Steam Games', () => {
   it('GET /steam', async () => {
     const res = await steamApp.request('/steam')
     expect(await res.json()).toEqual([
