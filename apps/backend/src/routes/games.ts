@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { steamClient } from '../clients/steam'
 import { getContainerSettingsFromTag } from '../utils'
-import { ImageTag } from 'shared/types'
+import { ImageTag, SteamGame } from 'shared/types'
 
 const app = new Hono()
 
@@ -17,8 +17,10 @@ app.get('/steam', async (c) => {
       appid: app.appid,
       name: app.name,
       selected: selectedApps.includes(app.appid),
-      imgUrl: ''
-    })) satisfies SteamGame[]
+      imgUrl: '',
+      hoursPlayed: Math.floor(app.playtime_forever / 60)
+    }))
+    .sort((a, b) => b.hoursPlayed - a.hoursPlayed) satisfies SteamGame[]
   )
 })
 

@@ -95,7 +95,7 @@ class DockerService {
       {
         Image: tag,
         name: containerName,
-        Cmd: ['prefill'],
+        Cmd: ['prefill', '--unit bytes'],
         Tty: true,
         HostConfig: {
           AutoRemove: true,

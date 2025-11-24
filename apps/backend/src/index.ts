@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import containers from './routes/containers';
 import images from './routes/images';
 import games from './routes/games';
+import stats from './routes/stats';
 import { check, configureLogger } from './utils';
+import cron from 'node-cron'
 
 configureLogger()
 const app = new Hono()
@@ -19,5 +21,11 @@ app.post('/api/check', async (c) => {
 app.route('/api/containers', containers)
 app.route('/api/images', images)
 app.route('/api/games', games)
+app.route('/api/stats', stats)
+
+const task = cron.schedule('* * * * *', async () => {
+  await check()
+});
+
 
 export default app

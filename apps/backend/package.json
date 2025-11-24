@@ -9,6 +9,7 @@
     "axios": "^1.13.2",
     "dockerode": "^4.0.9",
     "hono": "^4.10.5",
+    "node-cron": "^4.2.1",
     "shared": "workspace:*"
   },
   "devDependencies": {
