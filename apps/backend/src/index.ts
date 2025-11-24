@@ -23,7 +23,7 @@ app.route('/api/images', images)
 app.route('/api/games', games)
 app.route('/api/stats', stats)
 
-const task = cron.schedule('* * * * *', async () => {
+cron.schedule('*/15 * * * *', async () => {
   await check()
 });
 
