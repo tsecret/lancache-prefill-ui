@@ -7,6 +7,7 @@
     "@docker/node-sdk": "^0.0.17",
     "@logtape/logtape": "^1.2.0",
     "axios": "^1.13.2",
+    "dayjs": "^1.11.19",
     "dockerode": "^4.0.9",
     "hono": "^4.10.5",
     "node-cron": "^4.2.1",
