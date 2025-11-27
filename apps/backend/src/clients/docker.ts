@@ -85,7 +85,7 @@ class DockerService {
       }))
   }
 
-  async containerRun(tag: string): Promise<boolean> {
+  async containerRun(tag: string, autoremove = true): Promise<boolean> {
     const client = await this.getClient()
     const { configPath, cachePath, containerName } = getContainerSettingsFromTag(tag)
 
@@ -95,10 +95,10 @@ class DockerService {
       {
         Image: tag,
         name: containerName,
-        Cmd: ['prefill', '--unit bytes'],
+        Cmd: ['prefill'],
         Tty: true,
         HostConfig: {
-          AutoRemove: true,
+          AutoRemove: autoremove,
           NetworkMode: 'host',
           Binds: [
             `${configPath}:/app/Config`,

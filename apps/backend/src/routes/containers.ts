@@ -17,8 +17,8 @@ app.get('/', async (c) => {
 })
 
 app.post('/prefill', async (c) => {
-  const { tag } = await c.req.json()
-  await docker.containerRun(tag)
+  const { tag, autoremove } = await c.req.json()
+  await docker.containerRun(tag, autoremove)
   return c.json({})
 })
 
