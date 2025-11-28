@@ -4,6 +4,7 @@ import containers from './routes/containers';
 import games from './routes/games';
 import images from './routes/images';
 import stats from './routes/stats';
+import devices from './routes/devices';
 import { check, configureLogger } from './utils';
 import { fetch, redis } from 'bun';
 import { getLogger } from '@logtape/logtape';
@@ -26,6 +27,7 @@ app.route('/api/containers', containers)
 app.route('/api/images', images)
 app.route('/api/games', games)
 app.route('/api/stats', stats)
+app.route('/api/devices', devices)
 
 cron.schedule('*/15 * * * *', async () => {
   await check()

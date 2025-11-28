@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import gamesApp from '../src/routes/games'
 import statsApp from '../src/routes/stats'
 import containersApp from '../src/routes/containers'
+import devicesApp from '../src/routes/devices'
 import containers from './fixtures/docker/containers.json'
 import { Container } from 'shared/types'
 
@@ -80,5 +81,11 @@ describe('Battlenet Games', () => {
   it('POST /battlenet', async () => {
     const res = await gamesApp.request('/battlenet', { method: 'POST', body: JSON.stringify({ apps: [1, 2, 3] }) })
     expect(await res.json()).toEqual({ success: true })
+  })
+})
+
+describe.skip('Devices', () => {
+  it('GET /devices', async () => {
+    const res = await devicesApp.request('/')
   })
 })
