@@ -105,5 +105,5 @@ export const check = async (): Promise<boolean> => {
 
 export const isAllowedToDownload = async (): Promise<boolean> => {
   const settings = await loadSettings()
-  return settings.cron.enabled
+  return settings.check.enabled
 }
