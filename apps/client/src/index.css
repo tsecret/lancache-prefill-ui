@@ -45,4 +45,8 @@
   .row {
     @apply flex flex-row items-center
   }
+
+  .container {
+    @apply w-full max-w-2xl
+  }
 }

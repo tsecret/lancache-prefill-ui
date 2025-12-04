@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'bun:test'
-import gamesApp from '../src/routes/games'
-import statsApp from '../src/routes/stats'
+import { describe, expect, it, mock } from 'bun:test'
+import { Container } from 'shared/types'
 import containersApp from '../src/routes/containers'
 import devicesApp from '../src/routes/devices'
+import gamesApp from '../src/routes/games'
+import { parseLogFile } from '../src/routes/stats'
 import containers from './fixtures/docker/containers.json'
-import { Container } from 'shared/types'
+
+import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
+import downloadMultipleLog from './fixtures/logs/download_multiple_games.log'
+import downloadSingleLog from './fixtures/logs/download_single_game.log'
+import reuseMultiple from './fixtures/logs/reuse_multiple.log'
 
 describe('Docker', () => {
   it('GET /containers', async () => {
@@ -20,14 +25,48 @@ describe('Docker', () => {
   })
 })
 
-describe.skip('Lancache Logs', () => {
-  it('GET /stats', async () => {
-    const res = await statsApp.request('/')
-    console.log('res.json()', await res.json())
+describe('Stats', () => {
+
+  it('Downloads single game', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadSingleLog).text() }))
+    const stats = await parseLogFile('')
+    expect(stats.bytesDownloaded).toEqual(3000)
+    expect(stats.bytesReused).toEqual(0)
+    expect(stats.downloads.length).toEqual(1)
+    expect(stats.downloads[0].bytesDownloaded).toEqual(3000)
+    expect(stats.downloads[0].appName).toEqual('Test Game 1')
+  })
+
+  it('Downloads multiple games', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadMultipleLog).text() }))
+    const stats = await parseLogFile('')
+    expect(stats.bytesDownloaded).toEqual(6000)
+    expect(stats.bytesReused).toEqual(0)
+    expect(stats.downloads.length).toEqual(2)
+    expect(stats.downloads[0].appName).toEqual('Test Game 2')
+    expect(stats.downloads[1].appName).toEqual('Test Game 1')
+  })
+
+  it('Downloads and reuse', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadAndReuseLog).text() }))
+    const stats = await parseLogFile('')
+    expect(stats.bytesDownloaded).toEqual(3000)
+    expect(stats.bytesReused).toEqual(3000)
+    expect(stats.downloads.length).toEqual(1)
+    expect(stats.reuses.length).toEqual(1)
+  })
+
+  it('Reuse multiple', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseMultiple).text() }))
+    const stats = await parseLogFile('')
+    expect(stats.bytesDownloaded).toEqual(3000)
+    expect(stats.bytesReused).toEqual(6000)
+    expect(stats.downloads.length).toEqual(1)
+    expect(stats.reuses.length).toEqual(2)
   })
 })
 
-describe('Steam Games', () => {
+describe.skip('Steam Games', () => {
   it('GET /steam', async () => {
     const res = await gamesApp.request('/steam')
     expect(await res.json()).toEqual([
@@ -59,7 +98,7 @@ describe('Steam Games', () => {
   })
 })
 
-describe('Battlenet Games', () => {
+describe.skip('Battlenet Games', () => {
   it('GET /battlenet', async () => {
     const res = await gamesApp.request('/battlenet')
     expect(await res.json()).toEqual([

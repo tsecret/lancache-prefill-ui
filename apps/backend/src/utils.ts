@@ -1,8 +1,16 @@
 import { ansiColorFormatter, configureSync, getConsoleSink, getLogger } from "@logtape/logtape";
-import { Container, ImageTag } from "shared/types";
+import { Container, ImageTag, Settings } from "shared/types";
 import { docker } from "./clients/docker";
 
 const logger = getLogger(['lancache-manager']);
+
+export const loadSettings = async (): Promise<Settings> => {
+  return Bun.file(process.env.CONFIGS_PATH + '/settings.json').json()
+}
+
+export const saveSettings = async (settings: Settings): Promise<void> => {
+  await Bun.file(process.env.CONFIGS_PATH + '/settings.json').write(JSON.stringify(settings))
+}
 
 export const configureLogger = async () => {
   configureSync({
@@ -95,6 +103,7 @@ export const check = async (): Promise<boolean> => {
   return true
 }
 
-export const isAllowedToDownload = (): boolean => {
-  return true
+export const isAllowedToDownload = async (): Promise<boolean> => {
+  const settings = await loadSettings()
+  return settings.cron.enabled
 }

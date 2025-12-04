@@ -22,21 +22,27 @@ function endpointParse(service: Services, endpoint: string){
     }
 }
 
-async function parseLogFile(filePath: string) {
+export async function readLogFile(filePath: string): Promise<string> {
+  return Bun.file(filePath).text()
+}
+
+export async function parseLogFile(filePath: string) {
   const LAST_SEEN_DIFF = 3 * 60 * 1000
   const TIME_FORMAT = "DD/MMM/YYYY:HH:mm:ss Z";
   const STEAM_DEPOT_MAP: Record<string, RedisDepot> = {}
 
   const stats: Stats = {
     bytesDownloaded: 0,
-    downloads: []
+    bytesReused: 0,
+    downloads: [],
+    reuses: []
   }
 
   let activeDownloads: Record<string, Record<string, ActiveDownload>> = {}
+  let activeReuses: Record<string, Record<string, ActiveDownload>> = {}
 
-  const foo = Bun.file(filePath);
-  const log = await foo.text()
-  const logs = log.split('\n')
+  const text = await readLogFile(filePath)
+  const logs = text.split('\n')
 
   for (const line of logs){
     const match = line.match(REGEX)
@@ -45,7 +51,13 @@ async function parseLogFile(filePath: string) {
 
     const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
 
-    stats.bytesDownloaded += parseInt(byte)
+    if (statusCode !== '200') continue
+
+    if (result === 'MISS')
+      stats.bytesDownloaded += parseInt(byte)
+
+    if (result === 'HIT')
+      stats.bytesReused += parseInt(byte)
 
     const { game, hash } = endpointParse(service as Services, endpoint)
     const parsedDate = dayjs(datetime, TIME_FORMAT);
@@ -61,33 +73,37 @@ async function parseLogFile(filePath: string) {
 
       const appId = STEAM_DEPOT_MAP[game].appId
 
+      const active = result === 'MISS' ? activeDownloads : activeReuses
 
-      if (!(service in activeDownloads))
-        activeDownloads[service] = {}
+      if (!(service in active))
+        active[service] = {}
 
-      if (!(appId in activeDownloads[service])) {
-        activeDownloads[service][appId] = {
+      if (!(appId in active[service])) {
+        active[service][appId] = {
           startedAt: timestamp,
           lastSeen: timestamp,
           bytesDownloaded: 0
         }
       }
 
-      if (timestamp - activeDownloads[service][appId].lastSeen < LAST_SEEN_DIFF){
-        activeDownloads[service][appId].lastSeen = timestamp
-        activeDownloads[service][appId].bytesDownloaded += parseInt(byte)
+      if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF){
+        active[service][appId].lastSeen = timestamp
+        active[service][appId].bytesDownloaded += parseInt(byte)
       } else {
-        stats.downloads.push({
-          startedAt: activeDownloads[service][appId].startedAt,
-          endedAt: activeDownloads[service][appId].lastSeen,
-          bytesDownloaded: activeDownloads[service][appId].bytesDownloaded,
+        const app = {
+          startedAt: active[service][appId].startedAt,
+          endedAt: active[service][appId].lastSeen,
+          bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId.toString(),
           appImage: STEAM_DEPOT_MAP[game].appImage,
           appName: STEAM_DEPOT_MAP[game].appName
-        })
+        }
 
-        activeDownloads[service][appId] = {
+        result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
+        stats.downloads.push()
+
+        active[service][appId] = {
           startedAt: timestamp,
           lastSeen: timestamp,
           bytesDownloaded: parseInt(byte)
@@ -119,6 +135,32 @@ async function parseLogFile(filePath: string) {
     }
   }
 
+  for (const service in activeReuses){
+    for (const app in activeReuses[service]){
+
+      let depot = ''
+      for (const _depot in STEAM_DEPOT_MAP){
+        if (STEAM_DEPOT_MAP[_depot].appId.toString() === app){
+          depot = _depot
+          break
+        }
+      }
+
+      stats.reuses.push({
+        startedAt: activeReuses[service][app].startedAt,
+        endedAt: activeReuses[service][app].lastSeen,
+        bytesDownloaded: activeReuses[service][app].bytesDownloaded,
+        service,
+        app: app,
+        appImage: STEAM_DEPOT_MAP[depot].appImage,
+        appName: STEAM_DEPOT_MAP[depot].appName
+      })
+    }
+  }
+
+  stats.downloads.sort((a, b) => b.startedAt - a.startedAt);
+  stats.reuses.sort((a, b) => b.startedAt - a.startedAt);
+
   return stats
 }
 
@@ -128,8 +170,7 @@ const getAppFromDepot = async (depotId: string): Promise<RedisDepot> => {
 }
 
 app.get('/', async (c) => {
-  const BASE_PATH = Bun.env.LANCACHE_LOGS_PATH
-  return c.json(await parseLogFile(`${BASE_PATH}/access.log`) satisfies Stats)
+  return c.json(await parseLogFile(`${Bun.env.LANCACHE_LOGS_PATH}/access.log`) satisfies Stats)
 })
 
 export default app

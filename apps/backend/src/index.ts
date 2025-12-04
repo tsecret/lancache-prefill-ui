@@ -1,14 +1,15 @@
+import { getLogger } from '@logtape/logtape';
+import { fetch, redis } from 'bun';
 import { Hono } from 'hono';
 import cron from 'node-cron';
+import { RedisDepot } from 'shared/types';
 import containers from './routes/containers';
+import devices from './routes/devices';
 import games from './routes/games';
 import images from './routes/images';
+import settings from './routes/settings';
 import stats from './routes/stats';
-import devices from './routes/devices';
-import { check, configureLogger } from './utils';
-import { fetch, redis } from 'bun';
-import { getLogger } from '@logtape/logtape';
-import { RedisDepot } from 'shared/types';
+import { check, configureLogger, loadSettings } from './utils';
 
 configureLogger()
 const app = new Hono()
@@ -28,10 +29,16 @@ app.route('/api/images', images)
 app.route('/api/games', games)
 app.route('/api/stats', stats)
 app.route('/api/devices', devices)
+app.route('/api/settings', settings);
 
-cron.schedule('*/15 * * * *', async () => {
-  await check()
-});
+(async () => {
+  const settings = await loadSettings()
+
+  logger.info(`Check cron job: ${settings.check.cron}`)
+  cron.schedule(settings.check.cron, async () => {
+    await check()
+  });
+})();
 
 (async () => {
 
@@ -53,6 +60,6 @@ cron.schedule('*/15 * * * *', async () => {
   await redis.set('depot:check_timestamp', (+new Date()).toString())
   logger.info('Depot mapping saved')
 
-})()
+})();
 
 export default app

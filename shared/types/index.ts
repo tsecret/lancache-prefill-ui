@@ -1,5 +1,7 @@
 export * from './container.type'
+export * from './devices.type'
 export * from './games.type'
 export * from './image.type'
 export * from './prefill.type'
+export * from './settings.type'
 export * from './stats.type'

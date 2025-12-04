@@ -23,5 +23,7 @@ export type RedisDepot = {
 
 export type Stats = {
   bytesDownloaded: number,
+  bytesReused: number,
   downloads: Download[]
+  reuses: Download[]
 }
