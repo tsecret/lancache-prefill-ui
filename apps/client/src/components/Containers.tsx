@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { CloudCheck, LoaderCircle } from 'lucide-react'
 import type { Container } from 'shared/types'
+import { apiFetch } from '../api'
 
 export default function Containers(){
   const { isPending, isError, data, error } = useQuery({
     queryKey: ['containers'],
     queryFn: async (): Promise<Container[]> => {
-      const res = await fetch('/api/containers')
+      const res = await apiFetch('/api/containers')
       return await res.json()
     },
     refetchInterval: 5000

@@ -4,6 +4,7 @@ import clsx from "clsx"
 import { CircleCheck, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { BattlenetGame, SteamGame } from "shared/types"
+import { apiFetch } from "../api"
 
 
 
@@ -14,7 +15,7 @@ function SteamGamesSelect(){
   const { data: steamGamesRaw } = useQuery({
     queryKey: ['steam-games'],
     queryFn: async (): Promise<SteamGame[]> => {
-      const res = await fetch('/api/games/steam')
+      const res = await apiFetch('/api/games/steam')
       return await res.json()
     },
   })
@@ -82,7 +83,7 @@ function BattlenetGamesSelect(){
   const { data: battlenetGamesRaw } = useQuery({
     queryKey: ['battlenet-games'],
     queryFn: async (): Promise<BattlenetGame[]> => {
-      const res = await fetch('/api/games/battlenet')
+      const res = await apiFetch('/api/games/battlenet')
       return await res.json()
     },
   })

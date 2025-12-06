@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import type { NetworkDevice } from "shared/types"
+import { apiFetch } from "../api"
 
 export default function DevicesPage(){
   const { data } = useQuery({
     queryKey: ['network-devices'],
     queryFn: async (): Promise<NetworkDevice[]> => {
-      const res = await fetch('/api/devices')
+      const res = await apiFetch('/api/devices')
       return await res.json()
     },
   })

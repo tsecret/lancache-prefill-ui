@@ -3,6 +3,7 @@ import clsx from "clsx";
 import dayjs from "dayjs";
 import { useState } from "preact/hooks";
 import type { Stats } from "shared/types";
+import { apiFetch } from "../api";
 
 function humanFileSize(bytes: number, si=true, dp=1) {
   const thresh = si ? 1000 : 1024;
@@ -62,7 +63,7 @@ export default function StatsPage(){
   const { isPending, isError, data, error } = useQuery({
     queryKey: ['stats'],
     queryFn: async (): Promise<Stats> => {
-      const res = await fetch('/api/stats')
+      const res = await apiFetch('/api/stats')
       return await res.json()
     },
     staleTime: 60000,

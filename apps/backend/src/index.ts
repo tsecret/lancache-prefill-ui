@@ -1,6 +1,7 @@
 import { getLogger } from '@logtape/logtape';
 import { fetch, redis } from 'bun';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import cron from 'node-cron';
 import { RedisDepot } from 'shared/types';
 import containers from './routes/containers';
@@ -14,6 +15,14 @@ import { check, configureLogger, loadSettings } from './utils';
 configureLogger()
 const app = new Hono()
 const logger = getLogger(['lancache-manager']);
+
+app.use('/*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 86400,
+}))
 
 app.get('/', (c) => {
   return c.text('ok')

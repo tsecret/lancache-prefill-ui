@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { CloudCheck, CloudDownload } from 'lucide-react'
 import type { Image } from 'shared/types'
+import { apiFetch } from '../api'
 
 export default function Images(){
   const { isPending, isError, data, error } = useQuery({
     queryKey: ['images'],
     queryFn: async (): Promise<Image[]> => {
-      const res = await fetch('/api/images')
+      const res = await apiFetch('/api/images')
       return await res.json()
     },
   })
