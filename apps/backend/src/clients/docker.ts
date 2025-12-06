@@ -18,7 +18,7 @@ class DockerService {
     }
 
     this.client = Bun.env.DEV === 'true' ?
-      new Docker({host: 'http://192.168.31.103', port: 2375}) :
+      new Docker({host: 'http://192.168.31.140', port: 2375}) :
       new Docker({socketPath: '/var/run/docker.sock'})
 
     return this.client
@@ -112,6 +112,8 @@ class DockerService {
       this.logger.info(`Container ${tag} created`)
       await container.start()
       this.logger.info(`Container ${tag} started`)
+      await container.wait()
+      this.logger.info(`Container ${tag} finished`)
       return true
     }
 

@@ -5,11 +5,11 @@ import { docker } from "./clients/docker";
 const logger = getLogger(['lancache-manager']);
 
 export const loadSettings = async (): Promise<Settings> => {
-  return Bun.file(process.env.CONFIGS_PATH + '/settings.json').json()
+  return Bun.file(Bun.env.SETTINGS_PATH || Bun.env.CONFIGS_PATH + '/settings.json').json()
 }
 
 export const saveSettings = async (settings: Settings): Promise<void> => {
-  await Bun.file(process.env.CONFIGS_PATH + '/settings.json').write(JSON.stringify(settings))
+  await Bun.file(Bun.env.SETTINGS_PATH || Bun.env.CONFIGS_PATH + '/settings.json').write(JSON.stringify(settings))
 }
 
 export const configureLogger = async () => {

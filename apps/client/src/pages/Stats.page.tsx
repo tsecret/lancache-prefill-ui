@@ -46,8 +46,8 @@ const Table = ({ data }: { data: Stats }) => {
             </div>
 
             <div className="flex flex-col">
-              <p>{dayjs(app.startedAt).format('HH:mm DD/MM/YYYY')}</p>
               <p>{dayjs(app.endedAt).format('HH:mm DD/MM/YYYY')}</p>
+              <p>{dayjs(app.startedAt).format('HH:mm DD/MM/YYYY')}</p>
             </div>
           </li>
         ))}
