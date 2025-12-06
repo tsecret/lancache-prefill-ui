@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     plugins: [preact(), tailwindcss()],
     server: {
       proxy: {
-        '/api': env.BACKEND_HOSTNAME as string
+        '/api': env.BACKEND_HOSTNAME || 'http://localhost:3000' as string
       }
     }
   }
