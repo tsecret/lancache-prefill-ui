@@ -1,9 +1,9 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { Container } from 'shared/types'
+import { Container, Stats } from 'shared/types'
 import containersApp from '../src/routes/containers'
 import devicesApp from '../src/routes/devices'
 import gamesApp from '../src/routes/games'
-import { parseLogFile } from '../src/routes/stats'
+import { parseLogFile, scheduledLogParse } from '../src/routes/stats'
 import containers from './fixtures/docker/containers.json'
 
 import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
@@ -27,9 +27,16 @@ describe('Docker', () => {
 
 describe('Stats', () => {
 
+  it('Cached stats', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadSingleLog).text() }))
+    await scheduledLogParse()
+    const stats: Stats = JSON.parse(await globalThis.Bun.redis.get('stats') as string)
+    expect(stats.bytesDownloaded).toBe(3000)
+  })
+
   it('Downloads single game', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadSingleLog).text() }))
-    const stats = await parseLogFile('')
+    const stats = await parseLogFile()
     expect(stats.bytesDownloaded).toEqual(3000)
     expect(stats.bytesReused).toEqual(0)
     expect(stats.downloads.length).toEqual(1)
@@ -39,7 +46,7 @@ describe('Stats', () => {
 
   it('Downloads multiple games', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadMultipleLog).text() }))
-    const stats = await parseLogFile('')
+    const stats = await parseLogFile()
     expect(stats.bytesDownloaded).toEqual(6000)
     expect(stats.bytesReused).toEqual(0)
     expect(stats.downloads.length).toEqual(2)
@@ -49,7 +56,7 @@ describe('Stats', () => {
 
   it('Downloads and reuse', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadAndReuseLog).text() }))
-    const stats = await parseLogFile('')
+    const stats = await parseLogFile()
     expect(stats.bytesDownloaded).toEqual(3000)
     expect(stats.bytesReused).toEqual(3000)
     expect(stats.downloads.length).toEqual(1)
@@ -58,7 +65,7 @@ describe('Stats', () => {
 
   it('Reuse multiple', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseMultiple).text() }))
-    const stats = await parseLogFile('')
+    const stats = await parseLogFile()
     expect(stats.bytesDownloaded).toEqual(3000)
     expect(stats.bytesReused).toEqual(6000)
     expect(stats.downloads.length).toEqual(1)

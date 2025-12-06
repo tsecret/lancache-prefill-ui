@@ -26,7 +26,8 @@ export async function readLogFile(filePath: string): Promise<string> {
   return Bun.file(filePath).text()
 }
 
-export async function parseLogFile(filePath: string) {
+export async function parseLogFile(): Promise<Stats> {
+  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
   const LAST_SEEN_DIFF = 3 * 60 * 1000
   const TIME_FORMAT = "DD/MMM/YYYY:HH:mm:ss Z";
   const STEAM_DEPOT_MAP: Record<string, RedisDepot> = {}
@@ -41,7 +42,7 @@ export async function parseLogFile(filePath: string) {
   let activeDownloads: Record<string, Record<string, ActiveDownload>> = {}
   let activeReuses: Record<string, Record<string, ActiveDownload>> = {}
 
-  const text = await readLogFile(filePath)
+  const text = await readLogFile(PATH)
   const logs = text.split('\n')
 
   for (const line of logs){
@@ -169,8 +170,13 @@ const getAppFromDepot = async (depotId: string): Promise<RedisDepot> => {
   return res ? JSON.parse(res) : { appId: 0, appName: "Unknown", appImage: '' }
 }
 
+export const scheduledLogParse = async (): Promise<void> => {
+  const stats = await parseLogFile()
+  await redis.set('stats', JSON.stringify(stats))
+}
+
 app.get('/', async (c) => {
-  return c.json(await parseLogFile(`${Bun.env.LANCACHE_LOGS_PATH}/access.log`) satisfies Stats)
+  return c.json(await parseLogFile() satisfies Stats)
 })
 
 export default app
