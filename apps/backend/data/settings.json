@@ -1,1 +1,13 @@
-{"check":{"enabled":false,"cron":"*/15 * * * *"}}
+{
+  "check": {
+    "enabled": true,
+    "cron": "*/15 * * * *"
+  },
+  "restriction": {
+    "enabled": true,
+    "allowedTimeWindow": [
+      9,
+      4
+    ]
+  }
+}

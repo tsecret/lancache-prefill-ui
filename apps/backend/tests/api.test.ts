@@ -1,5 +1,5 @@
-import { describe, expect, it, mock } from 'bun:test'
-import { Container, Stats } from 'shared/types'
+import { afterEach, beforeEach, describe, expect, it, mock, setSystemTime, jest } from 'bun:test'
+import { Container, Settings, Stats } from 'shared/types'
 import containersApp from '../src/routes/containers'
 import devicesApp from '../src/routes/devices'
 import gamesApp from '../src/routes/games'
@@ -10,6 +10,7 @@ import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
 import downloadMultipleLog from './fixtures/logs/download_multiple_games.log'
 import downloadSingleLog from './fixtures/logs/download_single_game.log'
 import reuseMultiple from './fixtures/logs/reuse_multiple.log'
+import { isAllowedToDownload } from '../src/utils'
 
 describe('Docker', () => {
   it('GET /containers', async () => {
@@ -133,5 +134,122 @@ describe.skip('Battlenet Games', () => {
 describe.skip('Devices', () => {
   it('GET /devices', async () => {
     const res = await devicesApp.request('/')
+  })
+})
+
+describe('Check', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('Check disabled', async () => {
+    const mockedSettings = {
+     check: {
+      enabled: false
+     },
+     restriction: {
+      enabled: false
+     }
+    } as Partial<Settings>
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(false)
+  })
+
+  it('Check enabled', async () => {
+    const mockedSettings = {
+     check: {
+      enabled: true
+     },
+     restriction: {
+      enabled: false
+     }
+    } as Partial<Settings>
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(true)
+  })
+
+  it('Check enabled, no restriction', async () => {
+    const mockedSettings = {
+     check: {
+      enabled: true
+     },
+     restriction: {
+      enabled: false
+     }
+    } as Partial<Settings>
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(true)
+  })
+
+  it('Check enabled, restriction enabled, outside of allowed window', async () => {
+    const mockedSettings = {
+      check: {
+        enabled: true
+      },
+      restriction: {
+        enabled: true,
+        allowedTimeWindow: [9, 18]
+      }
+    } as Partial<Settings>
+
+    const date = new Date(2025, 1, 1, 8)
+    setSystemTime(date)
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(false)
+  })
+
+  it('Check enabled, restriction enabled, inside of allowed window', async () => {
+    const mockedSettings = {
+      check: {
+        enabled: true
+      },
+      restriction: {
+        enabled: true,
+        allowedTimeWindow: [9, 18]
+      }
+    } as Partial<Settings>
+
+    const date = new Date(2025, 1, 1, 10)
+    setSystemTime(date)
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(true)
+  })
+
+  it.each([6, 10, 22])('Check enabled, restriction enabled, outside of midnight crosseing window', async (hour) => {
+    const mockedSettings = {
+      check: {
+        enabled: true
+      },
+      restriction: {
+        enabled: true,
+        allowedTimeWindow: [23, 5]
+      }
+    } as Partial<Settings>
+
+    const date = new Date(2025, 1, 1, hour)
+    setSystemTime(date)
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(false)
+  })
+
+  it.each([23, 0, 1, 2, 3, 4, 5])('Check enabled, restriction enabled, inside of midnight crosseing window', async (hour) => {
+    const mockedSettings = {
+      check: {
+        enabled: true
+      },
+      restriction: {
+        enabled: true,
+        allowedTimeWindow: [23, 5]
+      }
+    } as Partial<Settings>
+
+    const date = new Date(2025, 1, 1, hour)
+    setSystemTime(date)
+
+    expect(isAllowedToDownload(mockedSettings as Settings)).toBe(true)
   })
 })

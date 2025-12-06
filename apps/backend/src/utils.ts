@@ -9,7 +9,7 @@ export const loadSettings = async (): Promise<Settings> => {
 }
 
 export const saveSettings = async (settings: Settings): Promise<void> => {
-  await Bun.file(Bun.env.SETTINGS_PATH || Bun.env.CONFIGS_PATH + '/settings.json').write(JSON.stringify(settings))
+  await Bun.file(Bun.env.SETTINGS_PATH || Bun.env.CONFIGS_PATH + '/settings.json').write(JSON.stringify(settings, null, 2))
 }
 
 export const configureLogger = async () => {
@@ -70,18 +70,8 @@ export const getContainerSettingsFromTag = (tag: ImageTag): { configPath: string
   }
 }
 
-export const check = async (): Promise<boolean> => {
+export const check = async (): Promise<void> => {
 
-  if (!isAllowedToDownload()){
-    logger.warn('Download now allowed, skipping check')
-    return false
-  }
-
-  const containers = await docker.containerList()
-  if (containers.length){
-    logger.warn('Prefill container already exists, skipping')
-    return false
-  }
 
   logger.info('Checking process started');
 
@@ -100,10 +90,20 @@ export const check = async (): Promise<boolean> => {
   })();
 
   logger.info('Check complete')
-  return true
 }
 
-export const isAllowedToDownload = async (): Promise<boolean> => {
-  const settings = await loadSettings()
-  return settings.check.enabled
+export const isAllowedToDownload = (settings: Settings): boolean => {
+  if (!settings.check.enabled)
+    return false
+
+  const currentDate = new Date()
+
+  return settings.check.enabled &&
+    settings.restriction.enabled ?
+      (
+        settings.restriction.allowedTimeWindow[0] < settings.restriction.allowedTimeWindow[1] ?
+          currentDate.getHours() >= settings.restriction.allowedTimeWindow[0] && currentDate.getHours() <= settings.restriction.allowedTimeWindow[1] :
+          currentDate.getHours() <= settings.restriction.allowedTimeWindow[1] || currentDate.getHours() >= settings.restriction.allowedTimeWindow[0]
+      ) :
+    true
 }

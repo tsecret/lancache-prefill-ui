@@ -10,7 +10,8 @@ import games from './routes/games';
 import images from './routes/images';
 import settings from './routes/settings';
 import stats from './routes/stats';
-import { check, configureLogger, loadSettings } from './utils';
+import { check, configureLogger, isAllowedToDownload, loadSettings } from './utils';
+import { docker } from './clients/docker';
 
 configureLogger()
 const app = new Hono()
@@ -44,7 +45,22 @@ app.route('/api/settings', settings);
   const settings = await loadSettings()
 
   logger.info(`Check cron job: ${settings.check.cron}`)
+
   cron.schedule(settings.check.cron, async () => {
+    const settings = await loadSettings()
+
+    if (!isAllowedToDownload(settings)){
+      logger.warn('Not allowed to download, skipping cron job')
+      return
+    }
+
+    const containers = await docker.containerList()
+
+    if (containers.length){
+      logger.warn('Prefill container already exists, skipping cron job')
+      return
+    }
+
     await check()
   });
 })();

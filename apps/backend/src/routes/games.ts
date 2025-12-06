@@ -29,7 +29,7 @@ app.post('/steam', async (c) => {
   const { configPath } = getContainerSettingsFromTag(ImageTag.STEAM)
 
   const selectedAppsFile = Bun.file(`${configPath}/selectedAppsToPrefill.json`)
-  await selectedAppsFile.write(JSON.stringify(apps))
+  await selectedAppsFile.write(JSON.stringify(apps, null, 2))
 
   return c.json({ success: true })
 })
@@ -67,7 +67,7 @@ app.post('/battlenet', async (c) => {
   const { configPath } = getContainerSettingsFromTag(ImageTag.BATTLENET)
 
   const selectedAppsFile = Bun.file(`${configPath}/selectedAppsToPrefill.json`)
-  await selectedAppsFile.write(JSON.stringify(apps))
+  await selectedAppsFile.write(JSON.stringify(apps, null, 2))
 
   return c.json({ success: true })
 })
