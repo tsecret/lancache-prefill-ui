@@ -1,5 +1,5 @@
 import { getLogger } from "@logtape/logtape";
-import type { Container, Image } from "shared/types";
+import { Services, type Container, type Image } from "shared/types";
 import { getContainerSettingsFromTag } from "../utils";
 import Docker = require('dockerode');
 
@@ -95,7 +95,7 @@ class DockerService {
       {
         Image: tag,
         name: containerName,
-        Cmd: ['prefill'],
+        Cmd: tag.includes(Services.STEAM) ? ['prefill', '--cellid', '66'] : ['prefill'],
         Tty: true,
         HostConfig: {
           AutoRemove: autoremove,
