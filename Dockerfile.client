@@ -13,7 +13,6 @@ COPY shared ./shared
 
 # Copy client package files and lockfile
 COPY apps/client/package.json ./apps/client/
-COPY apps/client/bun.lock* ./apps/client/
 COPY apps/client/tsconfig*.json ./apps/client/
 COPY apps/client/vite.config.ts ./apps/client/
 
