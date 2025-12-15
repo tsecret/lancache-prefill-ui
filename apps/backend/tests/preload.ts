@@ -9,7 +9,7 @@ const depotMapping = () => {
       appId: 1,
       appName: 'Test Game 1',
       appImage: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/3240220/header.jpg?t=1753974947',
-      depots: [1]
+      depots: [1, 10]
     },
     {
       appId: 2,
@@ -56,6 +56,7 @@ const mockRedisData: Record<string, string> = {}
 depotMapping()
 
 if (globalThis.Bun) {
+  globalThis.Bun.write = vi.fn(async () => {}),
   globalThis.Bun.redis = {
     connect: vi.fn(async () => { }),
     get: vi.fn(async (key: string) => {

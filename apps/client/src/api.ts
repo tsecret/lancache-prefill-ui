@@ -30,3 +30,8 @@ export const apiPost = async (path: string, body: any) => {
   const res = await axios.post(apiUrl(path), body)
   return res.data
 }
+
+export const apiDelete = async (path: string, body: any) => {
+  const res = await axios.delete(apiUrl(path), body)
+  return res.data
+}

@@ -1,18 +1,22 @@
 
 export type Download = {
   startedAt: number
+  startedAtString: string
   endedAt: number
   service: string
   app: string
   bytesDownloaded: number
   appName: string
   appImage: string
+  depots: string[]
 }
 
 export type ActiveDownload = {
   startedAt: number
+  startedAtString: string
   lastSeen: number
   bytesDownloaded: number
+  depots: string[]
 }
 
 export type RedisDepot = {

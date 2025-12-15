@@ -1,16 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, mock, setSystemTime, jest } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, jest, mock, setSystemTime } from 'bun:test'
 import { Container, Settings, Stats } from 'shared/types'
 import containersApp from '../src/routes/containers'
 import devicesApp from '../src/routes/devices'
 import gamesApp from '../src/routes/games'
-import { parseLogFile, scheduledLogParse } from '../src/routes/stats'
+import statsApp, { parseLogFile, scheduledLogParse } from '../src/routes/stats'
+import { isAllowedToDownload } from '../src/utils'
 import containers from './fixtures/docker/containers.json'
 
 import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
+import downloadMixed from './fixtures/logs/download_mixed.log'
 import downloadMultipleLog from './fixtures/logs/download_multiple_games.log'
 import downloadSingleLog from './fixtures/logs/download_single_game.log'
 import reuseMultiple from './fixtures/logs/reuse_multiple.log'
-import { isAllowedToDownload } from '../src/utils'
 
 describe('Docker', () => {
   it('GET /containers', async () => {
@@ -48,7 +49,7 @@ describe('Stats', () => {
   it('Downloads multiple games', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadMultipleLog).text() }))
     const stats = await parseLogFile()
-    expect(stats.bytesDownloaded).toEqual(6000)
+    expect(stats.bytesDownloaded).toEqual(9000)
     expect(stats.bytesReused).toEqual(0)
     expect(stats.downloads.length).toEqual(2)
     expect(stats.downloads[0].appName).toEqual('Test Game 2')
@@ -72,6 +73,32 @@ describe('Stats', () => {
     expect(stats.downloads.length).toEqual(1)
     expect(stats.reuses.length).toEqual(2)
   })
+
+  it('Mixes downloads', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadMixed).text() }))
+    const stats = await parseLogFile()
+    expect(stats.downloads.length).toEqual(2)
+  })
+
+  it('Delete Reuse', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseMultiple).text() }))
+    const stats = await parseLogFile()
+
+    const res = await statsApp.request('/reuse', { method: 'DELETE', body: JSON.stringify({ service: 'steam', startedAtString: stats.reuses[0].startedAtString, depots: stats.reuses[0].depots }) })
+    expect(await res.json()).toEqual({ deletedLines: 3 })
+
+  })
+
+  it('Delete Download', async () => {
+    mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseMultiple).text() }))
+    const stats = await parseLogFile()
+
+    const res = await statsApp.request('/download', { method: 'DELETE', body: JSON.stringify({ service: 'steam', startedAtString: stats.downloads[0].startedAtString, depots: stats.downloads[0].depots }) })
+    expect(await res.json()).toEqual({ deletedLines: 3 })
+
+
+  })
+
 })
 
 describe.skip('Steam Games', () => {
