@@ -264,7 +264,7 @@ app.delete('/download', async (c) => {
 
     if (service === 'steam'){
       const hash = endpoint.split('/')[4]
-      promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${hash.slice(0, 2)}`, { recursive: true, force: true }))
+      promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${hash.slice(0, 2)}/${hash.slice(2, 4)}`, { recursive: true, force: true }))
     }
 
   }
