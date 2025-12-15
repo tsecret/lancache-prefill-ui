@@ -69,9 +69,9 @@ const Table = ({ data }: { data: Stats }) => {
               <p>{dayjs(app.startedAt).format('HH:mm DD/MM/YYYY')}</p>
             </div>
 
-            <div className="flex flex-col justify-center">
+            {/* <div className="flex flex-col justify-center">
               <button className="btn btn-error btn-sm btn-square" onClick={() => tab ==='downloads' ? onDeleteDownload(app) : onDeleteReuse(app) }><Trash2 size={16} /></button>
-            </div>
+            </div> */}
           </li>
         ))}
       </ul>
