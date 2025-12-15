@@ -87,4 +87,16 @@ app.route('/api/settings', settings);
 
 })();
 
-export default app
+// Start the server with increased idleTimeout to handle long-running requests
+const port = parseInt(process.env.PORT || '3000')
+Bun.serve({
+  port,
+  fetch: app.fetch,
+  idleTimeout: 120,
+  error(error) {
+    logger.error('Server error:', error)
+    return new Response('Internal Server Error', { status: 500 })
+  },
+})
+
+logger.info(`Server running on port ${port}`)
