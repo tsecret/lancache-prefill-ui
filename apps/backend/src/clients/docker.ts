@@ -99,7 +99,6 @@ class DockerService {
         Tty: true,
         HostConfig: {
           AutoRemove: autoremove,
-          NetworkMode: 'host',
           Binds: [
             `${configPath}:/app/Config`,
             `${cachePath}:/root/.cache`
@@ -120,11 +119,26 @@ class DockerService {
     return false
   }
 
+  async containerPause(id: string){
+    const client = await this.getClient()
+    const container =  client.getContainer(id)
+    await container.pause()
+    this.logger.info(`Container ${(await container.inspect()).Name} paused`)
+  }
+
+  async containerUnpause(id: string){
+    const client = await this.getClient()
+    const container = client.getContainer(id)
+    await container.unpause()
+    this.logger.info(`Container ${(await container.inspect()).Name} paused`)
+  }
+
   async containerStop(id: string){
     const client = await this.getClient()
-    this.logger.info(`Stopping container ${id}`)
-    await client.getContainer(id).stop()
-    this.logger.info(`Container ${id} was stopped`)
+    const container = client.getContainer(id)
+    this.logger.info(`Stopping container ${(await container.inspect()).Name}`)
+    await container.stop()
+    this.logger.info(`Container ${(await container.inspect()).Name} was stopped`)
   }
 
   async getContainerLog(id: string): Promise<string|null>{

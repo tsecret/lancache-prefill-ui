@@ -34,4 +34,16 @@ app.get('/logs', async (c) => {
   return c.json(log)
 })
 
+app.post('/pause', async (c) => {
+  const { id } = await c.req.json()
+  await docker.containerPause(id)
+  return c.json({})
+})
+
+app.post('/unpause', async (c) => {
+  const { id } = await c.req.json()
+  await docker.containerUnpause(id)
+  return c.json({})
+})
+
 export default app

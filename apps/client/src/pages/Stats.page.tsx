@@ -1,10 +1,10 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import { useState } from "preact/hooks";
-import type { Download, Stats } from "shared/types";
-import { apiDelete, apiFetch } from "../api";
-import { Trash2 } from "lucide-react";
+import type { Stats } from "shared/types";
+import { apiFetch } from "../api";
+import Loader from "../components/Loader";
 
 function humanFileSize(bytes: number, si=true, dp=1) {
   const thresh = si ? 1000 : 1024;
@@ -31,22 +31,22 @@ function humanFileSize(bytes: number, si=true, dp=1) {
 const Table = ({ data }: { data: Stats }) => {
   const [tab, setTab] = useState<'downloads' | 'reuses'>('downloads')
 
-  const mutation = useMutation({
-    mutationFn: ({ type, app }: { type: 'download' | 'reuse', app: Download }) => {
-      return apiDelete(
-        type === 'download' ? '/api/stats/download' : '/api/stats/reuse',
-        { data: { service: app.service, depots: app.depots, startedAtString: app.startedAtString } }
-      )
-    },
-  })
+  // const mutation = useMutation({
+  //   mutationFn: ({ type, app }: { type: 'download' | 'reuse', app: Download }) => {
+  //     return apiDelete(
+  //       type === 'download' ? '/api/stats/download' : '/api/stats/reuse',
+  //       { data: { service: app.service, depots: app.depots, startedAtString: app.startedAtString } }
+  //     )
+  //   },
+  // })
 
-  const onDeleteReuse = async (app: Download) => {
-    await mutation.mutateAsync({ type: 'reuse', app })
-  }
+  // const onDeleteReuse = async (app: Download) => {
+  //   await mutation.mutateAsync({ type: 'reuse', app })
+  // }
 
-  const onDeleteDownload = async (app: Download) => {
-    await mutation.mutateAsync({ type: 'download', app })
-  }
+  // const onDeleteDownload = async (app: Download) => {
+  //   await mutation.mutateAsync({ type: 'download', app })
+  // }
 
   return (
     <section className="w-full sm:w-xl">
@@ -92,7 +92,7 @@ export default function StatsPage(){
     refetchOnWindowFocus: false
   })
 
-  if (isPending) return <h1>Loading...</h1>
+  if (isPending) return <Loader />
   if (isError) return <span>Error: {error.message}</span>
 
   return (

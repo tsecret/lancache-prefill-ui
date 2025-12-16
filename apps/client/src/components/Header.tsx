@@ -9,6 +9,7 @@ export default function Header(){
       <div className="flex-1">
         <Link to='/' className="btn btn-ghost text-xl">LancacheUI</Link>
 
+        <Link to='/downloads' className="btn btn-ghost">Downloads</Link>
         <Link to='/games' className="btn btn-ghost">Games</Link>
         <Link to='/stats' className="btn btn-ghost">Stats</Link>
         <Link to='/devices' className="btn btn-ghost">Devices</Link>

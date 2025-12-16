@@ -1,11 +1,13 @@
-import Containers from "../components/Containers";
+import { useEffect } from "react";
+import { useNavigate } from "react-router";
 
 export default function DashboardPage(){
 
-  return (
-    <div className="page">
-      {/* <Images /> */}
-      <Containers />
-    </div>
-  )
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    navigate('/downloads')
+  }, [])
+
+  return null
 }
