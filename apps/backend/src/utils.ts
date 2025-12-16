@@ -43,6 +43,8 @@ export const populateContainerWithLog = (_container: Container, log: string): Co
       speed: parseFloat(speed),
       unitSpeed
     }
+  } else {
+    container.lastLog = log
   }
 
   return container

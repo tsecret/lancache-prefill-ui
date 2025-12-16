@@ -73,7 +73,10 @@ export default function Containers(){
                 </div>
                 <progress className="progress progress-primary w-full mt-4" value={container.progress.percent} max="100"></progress>
               </div>
-            ) : <span className="text-end">{container.uptime}</span>
+            ) : <div className="row">
+              <span className="flex-1">{isPaused ? null : container.lastLog}</span>
+              <span className="text-end">{container.uptime}</span>
+            </div>
           }
         </div>
       })

@@ -6,6 +6,7 @@ export type Container = {
   created: number
   state: "created" | "running" | "paused" | "restarting" | "exited" | "removing" | "dead"
   uptime: string
+  lastLog?: string
   progress?: {
     isDownloading: boolean
     percent: number
