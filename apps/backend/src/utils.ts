@@ -26,10 +26,21 @@ export const sleep = async (ms: number = 2000) => {
   await new Promise(res => setTimeout(res, ms))
 }
 
-export const populateContainerWithLog = (_container: Container, log: string): Container => {
+export const populateContainerWithLog = (_container: Container, logs: string[]): Container => {
   const container = { ..._container }
 
-  let match = log.match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
+  // Game
+  for (let i = logs.length-1; i >= 0; i--){
+    if (!logs[i].includes('Starting')) continue
+    const match = logs[i].match(/Starting (.*)/)
+    if (match){
+      container.gameName = match[1]
+      break
+    }
+  }
+
+  // Download status
+  let match = logs[logs.length-1].match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
   if (match){
     const [, percent, time, downloadedAmount, downloadLeftAmount, unitAmount, speed, unitSpeed] = match
 
@@ -44,8 +55,10 @@ export const populateContainerWithLog = (_container: Container, log: string): Co
       unitSpeed
     }
   } else {
-    container.lastLog = log
+    if (logs[logs.length-1])
+      container.lastLog = logs[logs.length-1]
   }
+
 
   return container
 }
@@ -108,4 +121,15 @@ export const isAllowedToDownload = (settings: Settings): boolean => {
           currentDate.getHours() <= settings.restriction.allowedTimeWindow[1] || currentDate.getHours() >= settings.restriction.allowedTimeWindow[0]
       ) :
     true
+}
+
+export const getBattlenetAppName = (appId: string): string => {
+  switch (appId) {
+    case 'hs':
+      return 'Hearthstone'
+    case 'pro':
+      return 'Overwatch'
+    default:
+      return 'Unknown Game'
+  }
 }

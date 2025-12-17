@@ -158,6 +158,18 @@ class DockerService {
     return null
   }
 
+  async getContainerLogs(id: string): Promise<string[]>{
+    const client = await this.getClient()
+
+    const r = await client
+      .getContainer(id)
+      .logs({ follow: false, stdout: true })
+
+    return r.toString()
+      .split('\n')
+      .map(line => line.trim().replace(/\u001b\[.*?m/g, ''))
+  }
+
 }
 
 export const docker = new DockerService()

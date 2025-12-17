@@ -5,11 +5,12 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { redis } from 'bun';
 import { rm } from "node:fs/promises";
 import { getLogger } from '@logtape/logtape';
+import { getBattlenetAppName } from '../utils';
 
 dayjs.extend(customParseFormat);
 
 const app = new Hono()
-const REGEX = /\[(\w+)] (\d+.\d+.\d+.\d+) \/ - - - \[(.*)] "GET (.*) HTTP\/1.1" (\d+) (\d+) "-" "(.*)" "(\w+)" "(.*)" "-"/
+const REGEX = /\[(\w+)] (\d+.\d+.\d+.\d+) \/ - - - \[(.*)] "GET (.*) HTTP\/1.1" (\d+) (\d+) "-" "(.*)" "(\w+)" "(.*)" "(.*)"/
 const TIME_FORMAT = "DD/MMM/YYYY:HH:mm:ss Z";
 const LAST_SEEN_DIFF = 3 * 60 * 1000
 
@@ -68,6 +69,11 @@ export async function parseLogFile(): Promise<Stats> {
     const parsedDate = dayjs(datetime, TIME_FORMAT);
     const timestamp = parsedDate.valueOf();
 
+    const active = result === 'MISS' || result === 'BYPASS' ? activeDownloads : activeReuses
+
+    if (!(service in active))
+      active[service] = {}
+
     if (service === 'steam') {
       // here game is depot
 
@@ -77,11 +83,6 @@ export async function parseLogFile(): Promise<Stats> {
       }
 
       const appId = STEAM_DEPOT_MAP[game].appId
-
-      const active = result === 'MISS' || result === 'BYPASS' ? activeDownloads : activeReuses
-
-      if (!(service in active))
-        active[service] = {}
 
       if (!(appId in active[service])) {
         active[service][appId] = {
@@ -111,7 +112,6 @@ export async function parseLogFile(): Promise<Stats> {
         } as Download
 
         result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
-        stats.downloads.push()
 
         active[service][appId] = {
           startedAt: timestamp,
@@ -123,55 +123,167 @@ export async function parseLogFile(): Promise<Stats> {
       }
     }
 
+    if (service === 'epicgames') {
+      const [, , appId] = endpoint.split('/')
+
+      if (!(appId in active[service])){
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: 0,
+          depots: []
+        } satisfies ActiveDownload
+      }
+
+      if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF){
+        active[service][appId].lastSeen = timestamp
+        active[service][appId].bytesDownloaded += parseInt(byte)
+      } else {
+        const app = {
+          startedAt: active[service][appId].startedAt,
+          startedAtString: active[service][appId].startedAtString,
+          endedAt: active[service][appId].lastSeen,
+          bytesDownloaded: active[service][appId].bytesDownloaded,
+          service: service,
+          app: appId,
+          appImage: "",
+          appName: appId,
+          depots: []
+        } as Download
+
+        result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
+
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: parseInt(byte),
+          depots: []
+        }
+      }
+    }
+
+    if (service === 'blizzard') {
+      const [, , appId] = endpoint.split('/')
+
+      if (!(appId in active[service])){
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: 0,
+          depots: []
+        } satisfies ActiveDownload
+      }
+
+      if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF){
+        active[service][appId].lastSeen = timestamp
+        active[service][appId].bytesDownloaded += parseInt(byte)
+      } else {
+        const app = {
+          startedAt: active[service][appId].startedAt,
+          startedAtString: active[service][appId].startedAtString,
+          endedAt: active[service][appId].lastSeen,
+          bytesDownloaded: active[service][appId].bytesDownloaded,
+          service: service,
+          app: appId,
+          appImage: "",
+          appName: getBattlenetAppName(appId),
+          depots: []
+        } as Download
+
+        result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
+
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: parseInt(byte),
+          depots: []
+        }
+      }
+    }
+
   }
 
   for (const service in activeDownloads) {
     for (const app in activeDownloads[service]) {
 
-      let depot = ''
-      for (const _depot in STEAM_DEPOT_MAP) {
-        if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
-          depot = _depot
-          break
+      if (service === 'steam'){
+        let depot = ''
+        for (const _depot in STEAM_DEPOT_MAP) {
+          if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
+            depot = _depot
+            break
+          }
         }
+
+        stats.downloads.push({
+          startedAt: activeDownloads[service][app].startedAt,
+          startedAtString: activeDownloads[service][app].startedAtString,
+          endedAt: activeDownloads[service][app].lastSeen,
+          bytesDownloaded: activeDownloads[service][app].bytesDownloaded,
+          service,
+          app: app,
+          appImage: STEAM_DEPOT_MAP[depot].appImage,
+          appName: STEAM_DEPOT_MAP[depot].appName,
+          depots: activeDownloads[service][app].depots
+        })
+      } else {
+        stats.downloads.push({
+          startedAt: activeDownloads[service][app].startedAt,
+          startedAtString: activeDownloads[service][app].startedAtString,
+          endedAt: activeDownloads[service][app].lastSeen,
+          bytesDownloaded: activeDownloads[service][app].bytesDownloaded,
+          service,
+          app: app,
+          appImage: "",
+          appName: service === 'blizzard' ? getBattlenetAppName(app) : app,
+          depots: []
+        })
       }
 
-      stats.downloads.push({
-        startedAt: activeDownloads[service][app].startedAt,
-        startedAtString: activeDownloads[service][app].startedAtString,
-        endedAt: activeDownloads[service][app].lastSeen,
-        bytesDownloaded: activeDownloads[service][app].bytesDownloaded,
-        service,
-        app: app,
-        appImage: STEAM_DEPOT_MAP[depot].appImage,
-        appName: STEAM_DEPOT_MAP[depot].appName,
-        depots: activeDownloads[service][app].depots
-      })
+
     }
   }
 
   for (const service in activeReuses) {
     for (const app in activeReuses[service]) {
 
-      let depot = ''
-      for (const _depot in STEAM_DEPOT_MAP) {
-        if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
-          depot = _depot
-          break
+      if (service === 'steam'){
+        let depot = ''
+        for (const _depot in STEAM_DEPOT_MAP) {
+          if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
+            depot = _depot
+            break
+          }
         }
-      }
 
-      stats.reuses.push({
-        startedAt: activeReuses[service][app].startedAt,
-        startedAtString: activeReuses[service][app].startedAtString,
-        endedAt: activeReuses[service][app].lastSeen,
-        bytesDownloaded: activeReuses[service][app].bytesDownloaded,
-        service,
-        app: app,
-        appImage: STEAM_DEPOT_MAP[depot].appImage,
-        appName: STEAM_DEPOT_MAP[depot].appName,
-        depots: activeReuses[service][app].depots
-      })
+        stats.reuses.push({
+          startedAt: activeReuses[service][app].startedAt,
+          startedAtString: activeReuses[service][app].startedAtString,
+          endedAt: activeReuses[service][app].lastSeen,
+          bytesDownloaded: activeReuses[service][app].bytesDownloaded,
+          service,
+          app: app,
+          appImage: STEAM_DEPOT_MAP[depot].appImage,
+          appName: STEAM_DEPOT_MAP[depot].appName,
+          depots: activeReuses[service][app].depots
+        })
+      } else {
+        stats.reuses.push({
+          startedAt: activeReuses[service][app].startedAt,
+          startedAtString: activeReuses[service][app].startedAtString,
+          endedAt: activeReuses[service][app].lastSeen,
+          bytesDownloaded: activeReuses[service][app].bytesDownloaded,
+          service,
+          app: app,
+          appImage: "",
+          appName: service === 'blizzard' ? getBattlenetAppName(app) : app,
+          depots: []
+        })
+      }
     }
   }
 
@@ -246,33 +358,33 @@ app.delete('/reuse', async (c) => {
   return c.json({ deletedLines: appLogs.size })
 })
 
-app.delete('/download', async (c) => {
-  const body = await c.req.json()
-  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+// app.delete('/download', async (c) => {
+//   const body = await c.req.json()
+//   const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
 
-  const text = await readLogFile(PATH)
-  const logs = text.split('\n')
+//   const text = await readLogFile(PATH)
+//   const logs = text.split('\n')
 
-  const appLogs = getGameLogs(logs, 'MISS', body.service, body.startedAtString, body.depots)
+//   const appLogs = getGameLogs(logs, 'MISS', body.service, body.startedAtString, body.depots)
 
-  let promises = []
-  for (const log of appLogs.values()){
+//   let promises = []
+//   for (const log of appLogs.values()){
 
-    const match = log.match(REGEX)
-    if (!match) continue
-    const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
+//     const match = log.match(REGEX)
+//     if (!match) continue
+//     const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
 
-    if (service === 'steam'){
-      const hash = endpoint.split('/')[4]
-      promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${hash.slice(0, 2)}/${hash.slice(2, 4)}`, { recursive: true, force: true }))
-    }
+//     if (service === 'steam'){
+//       const hash = endpoint.split('/')[4]
+//       promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${hash.slice(0, 2)}/${hash.slice(2, 4)}`, { recursive: true, force: true }))
+//     }
 
-  }
+//   }
 
-  await Promise.all(promises)
-  await deleteLogs(logs, appLogs)
+//   await Promise.all(promises)
+//   await deleteLogs(logs, appLogs)
 
-  return c.json({ deletedLines: appLogs.size })
-})
+//   return c.json({ deletedLines: appLogs.size })
+// })
 
 export default app

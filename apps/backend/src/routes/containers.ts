@@ -8,9 +8,9 @@ app.get('/', async (c) => {
   const containers = await docker.containerList()
 
   for (const i in containers){
-    const log = await docker.getContainerLog(containers[i].id)
-    if (log)
-      containers[i] = populateContainerWithLog(containers[i], log)
+    const logs = await docker.getContainerLogs(containers[i].id)
+    if (logs.length)
+      containers[i] = populateContainerWithLog(containers[i], logs)
   }
 
   return c.json(containers)

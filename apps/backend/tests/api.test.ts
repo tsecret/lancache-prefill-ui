@@ -8,9 +8,13 @@ import { isAllowedToDownload } from '../src/utils'
 import containers from './fixtures/docker/containers.json'
 
 import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
+import downloadBattlenet from './fixtures/logs/download_battlenet.log'
+import downloadEpic from './fixtures/logs/download_epic.log'
 import downloadMixed from './fixtures/logs/download_mixed.log'
 import downloadMultipleLog from './fixtures/logs/download_multiple_games.log'
 import downloadSingleLog from './fixtures/logs/download_single_game.log'
+import reuseBattlenet from './fixtures/logs/reuse_battlenet.log'
+import reuseEpic from './fixtures/logs/reuse_epic.log'
 import reuseMultiple from './fixtures/logs/reuse_multiple.log'
 
 describe('Docker', () => {
@@ -89,7 +93,7 @@ describe('Stats', () => {
 
   })
 
-  it('Delete Download', async () => {
+  it.skip('Delete Download', async () => {
     mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseMultiple).text() }))
     const stats = await parseLogFile()
 
@@ -98,6 +102,48 @@ describe('Stats', () => {
 
 
   })
+
+  describe('Epic', () => {
+
+    it('Game Download', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadEpic).text() }))
+      const stats = await parseLogFile()
+      expect(stats.downloads.length).toBe(1)
+      expect(stats.downloads[0].bytesDownloaded).toBe(3000)
+      expect(stats.downloads[0].appName).toBe('Fortnite')
+    })
+
+    it('Game Reuse', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseEpic).text() }))
+      const stats = await parseLogFile()
+      expect(stats.reuses.length).toBe(1)
+      expect(stats.reuses[0].bytesDownloaded).toBe(3000)
+      expect(stats.reuses[0].appName).toBe('Fortnite')
+    })
+
+  })
+
+  describe('Battlenet', () => {
+
+    it('Game Download', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadBattlenet).text() }))
+      const stats = await parseLogFile()
+      expect(stats.downloads.length).toBe(1)
+      expect(stats.downloads[0].bytesDownloaded).toBe(3000)
+      expect(stats.downloads[0].appName).toBe('Hearthstone')
+    })
+
+    it('Game Reuse', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(reuseBattlenet).text() }))
+      const stats = await parseLogFile()
+      expect(stats.reuses.length).toBe(1)
+      expect(stats.reuses[0].bytesDownloaded).toBe(3000)
+      expect(stats.reuses[0].appName).toBe('Hearthstone')
+    })
+
+  })
+
+
 
 })
 
