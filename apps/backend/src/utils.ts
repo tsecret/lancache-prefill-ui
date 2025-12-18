@@ -40,7 +40,8 @@ export const populateContainerWithLog = (_container: Container, logs: string[]):
   }
 
   // Download status
-  let match = logs[logs.length-1].match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
+  if (logs.length < 2) return container
+  let match = logs[logs.length-2].match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
   if (match){
     const [, percent, time, downloadedAmount, downloadLeftAmount, unitAmount, speed, unitSpeed] = match
 
@@ -55,8 +56,8 @@ export const populateContainerWithLog = (_container: Container, logs: string[]):
       unitSpeed
     }
   } else {
-    if (logs[logs.length-1])
-      container.lastLog = logs[logs.length-1]
+    if (logs[logs.length-2])
+      container.lastLog = logs[logs.length-2]
   }
 
 
