@@ -26,22 +26,10 @@ export const sleep = async (ms: number = 2000) => {
   await new Promise(res => setTimeout(res, ms))
 }
 
-export const populateContainerWithLog = (_container: Container, logs: string[]): Container => {
+export const populateContainerWithLog = (_container: Container, log: string): Container => {
   const container = { ..._container }
 
-  // Game
-  for (let i = logs.length-1; i >= 0; i--){
-    if (!logs[i].includes('Starting')) continue
-    const match = logs[i].match(/Starting (.*)/)
-    if (match){
-      container.gameName = match[1]
-      break
-    }
-  }
-
-  // Download status
-  if (logs.length < 2) return container
-  let match = logs[logs.length-2].match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
+  const match = log.match(/(\d+)%\s+(\d+:\d+:\d+)\s+(\d+.\d)\/(\d+.\d)\s+(.*)\s+(\d+.\d+)\s(.*)/)
   if (match){
     const [, percent, time, downloadedAmount, downloadLeftAmount, unitAmount, speed, unitSpeed] = match
 
@@ -56,10 +44,8 @@ export const populateContainerWithLog = (_container: Container, logs: string[]):
       unitSpeed
     }
   } else {
-    if (logs[logs.length-2])
-      container.lastLog = logs[logs.length-2]
+    container.lastLog = log
   }
-
 
   return container
 }

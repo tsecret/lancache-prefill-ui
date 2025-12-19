@@ -7,7 +7,6 @@ export type Container = {
   state: "created" | "running" | "paused" | "restarting" | "exited" | "removing" | "dead"
   uptime: string
   lastLog?: string
-  gameName?: string
   progress?: {
     isDownloading: boolean
     percent: number
