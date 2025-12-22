@@ -6,6 +6,7 @@ import { redis } from 'bun';
 import { rm } from "node:fs/promises";
 import { getLogger } from '@logtape/logtape';
 import { getBattlenetAppName } from '../utils';
+import { createHash } from 'node:crypto';
 
 dayjs.extend(customParseFormat);
 
@@ -50,6 +51,7 @@ export async function parseLogFile(): Promise<Stats> {
   const text = await readLogFile(PATH)
   const logs = text.split('\n')
 
+
   for (const line of logs) {
     const match = line.match(REGEX)
 
@@ -57,7 +59,7 @@ export async function parseLogFile(): Promise<Stats> {
 
     const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
 
-    if (statusCode !== '200') continue
+    if (!statusCode.startsWith('20')) continue
 
     if (result === 'MISS' || result === 'BYPASS')
       stats.bytesDownloaded += parseInt(byte)
@@ -152,7 +154,7 @@ export async function parseLogFile(): Promise<Stats> {
           depots: []
         } as Download
 
-        result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
+        result === 'HIT' ? stats.reuses.push(app): stats.downloads.push(app)
 
         active[service][appId] = {
           startedAt: timestamp,
@@ -193,7 +195,48 @@ export async function parseLogFile(): Promise<Stats> {
           depots: []
         } as Download
 
-        result === 'MISS' ? stats.downloads.push(app) : stats.reuses.push(app)
+        result === 'HIT' ? stats.reuses.push(app): stats.downloads.push(app)
+
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: parseInt(byte),
+          depots: []
+        }
+      }
+    }
+
+    if (service === 'riot'){
+      const appId = host.split('.')[0]
+
+      if (!(appId in active[service])) {
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: 0,
+          depots: [game]
+        } satisfies ActiveDownload
+      }
+
+      if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF){
+        active[service][appId].lastSeen = timestamp
+        active[service][appId].bytesDownloaded += parseInt(byte)
+      } else {
+        const app = {
+          startedAt: active[service][appId].startedAt,
+          startedAtString: active[service][appId].startedAtString,
+          endedAt: active[service][appId].lastSeen,
+          bytesDownloaded: active[service][appId].bytesDownloaded,
+          service: service,
+          app: appId,
+          appImage: "",
+          appName: appId,
+          depots: []
+        } as Download
+
+        result === 'HIT' ? stats.reuses.push(app): stats.downloads.push(app)
 
         active[service][appId] = {
           startedAt: timestamp,
@@ -298,12 +341,7 @@ const getAppFromDepot = async (depotId: string): Promise<RedisDepot> => {
   return res ? JSON.parse(res) : { appId: 0, appName: "Unknown", appImage: '' }
 }
 
-export const scheduledLogParse = async (): Promise<void> => {
-  const stats = await parseLogFile()
-  await redis.set('stats', JSON.stringify(stats))
-}
-
-const getGameLogs = (logs: string[], result: 'HIT' | 'MISS', service: string, startedAtString: string, depots: string[]): Set<string> => {
+const getGameLogs = (logs: string[], type: 'reuse' | 'download', service: string, startedAtString: string, depots: string[]): Set<string> => {
 
   const set = new Set<string>()
   let lastSeenTimestamp: number | null = null
@@ -313,7 +351,7 @@ const getGameLogs = (logs: string[], result: 'HIT' | 'MISS', service: string, st
     if (!match) continue
 
     const [, _service, ip, datetime, endpoint, statusCode, byte, client, _result, host] = match
-    if (service !== _service || _result !== result) continue
+    if (service !== _service || !(type === 'download' ? (_result === 'MISS' || _result === 'BYPASS') : _result === 'HIT') ) continue
 
     if (!lastSeenTimestamp && datetime === startedAtString){
       lastSeenTimestamp = dayjs(datetime, TIME_FORMAT).valueOf();
@@ -352,39 +390,78 @@ app.delete('/reuse', async (c) => {
   const text = await readLogFile(PATH)
   const logs = text.split('\n')
 
-  const appLogs = getGameLogs(logs, 'HIT', body.service, body.startedAtString, body.depots)
+  const appLogs = getGameLogs(logs, 'reuse', body.service, body.startedAtString, body.depots)
   await deleteLogs(logs, appLogs)
 
   return c.json({ deletedLines: appLogs.size })
 })
 
-// app.delete('/download', async (c) => {
-//   const body = await c.req.json()
-//   const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+app.delete('/download', async (c) => {
+  const body = await c.req.json()
+  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
 
-//   const text = await readLogFile(PATH)
-//   const logs = text.split('\n')
+  const text = await readLogFile(PATH)
+  const logs = text.split('\n')
 
-//   const appLogs = getGameLogs(logs, 'MISS', body.service, body.startedAtString, body.depots)
+  const appLogs = getGameLogs(logs, 'download', body.service, body.startedAtString, body.depots)
 
-//   let promises = []
-//   for (const log of appLogs.values()){
+  const promises = []
+  const paths: string[] = []
 
-//     const match = log.match(REGEX)
-//     if (!match) continue
-//     const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
+  for (const log of appLogs.values()){
 
-//     if (service === 'steam'){
-//       const hash = endpoint.split('/')[4]
-//       promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${hash.slice(0, 2)}/${hash.slice(2, 4)}`, { recursive: true, force: true }))
-//     }
+    const match = log.match(REGEX)
+    if (!match) continue
+    const [, service, , , endpoint, , _totalSize, , , host, byteRange] = match
 
-//   }
+    const SLICE_SIZE = 1024 * 1024
+    const totalSize = parseInt(_totalSize)
 
-//   await Promise.all(promises)
-//   await deleteLogs(logs, appLogs)
+    const ranges: [number, number][] = []
 
-//   return c.json({ deletedLines: appLogs.size })
-// })
+
+    if (byteRange !== '-'){
+      const lower = parseInt(byteRange.split('=')[1].split('-')[0])
+      const upper = parseInt(byteRange.split('=')[1].split('-')[1])
+
+      let start = lower
+      let end = upper
+
+      start = start / SLICE_SIZE * SLICE_SIZE
+      while (start < end){
+        const segmentEnd = start + SLICE_SIZE - 1
+        ranges.push([start, segmentEnd])
+        start = segmentEnd + 1
+      }
+    } else {
+      if (totalSize === 0) {
+        ranges.push([0, SLICE_SIZE-1])
+      } else {
+        for (let start = 0; start < totalSize; start += SLICE_SIZE) {
+          let end = start + SLICE_SIZE - 1
+          if (end >= totalSize){
+            end = start + SLICE_SIZE - 1
+          }
+          ranges.push([start, end])
+        }
+      }
+    }
+
+    for (const range of ranges){
+      const input = service + endpoint + `bytes=${range[0]}-${range[1]}`
+
+      const hash = createHash("md5").update(input).digest("hex")
+
+      const path = `${hash.slice(-2)}/${hash.slice(-4, -2)}/${hash}`
+      paths.push(path)
+      promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${path}`, { force: true }))
+    }
+  }
+
+  await Promise.all(promises)
+  await deleteLogs(logs, appLogs)
+
+  return c.json({ deletedLines: appLogs.size, paths })
+})
 
 export default app

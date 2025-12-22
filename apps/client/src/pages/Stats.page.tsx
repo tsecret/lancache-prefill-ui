@@ -45,9 +45,9 @@ const Table = ({ data }: { data: Stats }) => {
     await mutation.mutateAsync({ type: 'reuse', app })
   }
 
-  // const onDeleteDownload = async (app: Download) => {
-  //   await mutation.mutateAsync({ type: 'download', app })
-  // }
+  const onDeleteDownload = async (app: Download) => {
+    await mutation.mutateAsync({ type: 'download', app })
+  }
 
   return (
     <section className="w-full sm:w-xl">
@@ -71,7 +71,7 @@ const Table = ({ data }: { data: Stats }) => {
             </div>
 
             <div className="flex flex-col justify-center">
-              <button className="btn btn-error btn-sm btn-square" onClick={() => tab ==='downloads' ? null : onDeleteReuse(app) }><Trash2 size={16} /></button>
+              <button className="btn btn-error btn-sm btn-square" onClick={() => tab ==='downloads' ? onDeleteDownload(app) : onDeleteReuse(app) }><Trash2 size={16} /></button>
             </div>
           </li>
         ))}
