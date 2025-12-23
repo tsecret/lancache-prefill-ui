@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import { ActiveDownload, Download, RedisDepot, Services, Stats } from 'shared/types'
+import { ActiveDownload, Download, CachedApp, Stats, type Service } from 'shared/types'
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { redis } from 'bun';
+import { fetch, redis } from 'bun';
 import { rm } from "node:fs/promises";
 import { getLogger } from '@logtape/logtape';
 import { getBattlenetAppName } from '../utils';
@@ -17,26 +17,13 @@ const LAST_SEEN_DIFF = 3 * 60 * 1000
 
 const logger = getLogger(['lancache-manager']);
 
-function endpointParse(service: Services, endpoint: string) {
-  switch (service) {
-    case Services.STEAM:
-      const [, , depot, , hash] = endpoint.split('/')
-      return { game: depot, hash }
-    case Services.EPIC:
-    case Services.BATTLENET:
-    // const [, game, , , ]
-    default:
-      return { game: '', hash: '' }
-  }
-}
-
 export async function readLogFile(filePath: string): Promise<string> {
   return Bun.file(filePath).text()
 }
 
 export async function parseLogFile(): Promise<Stats> {
   const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
-  const STEAM_DEPOT_MAP: Record<string, RedisDepot> = {}
+  const STEAM_DEPOT_MAP: Record<string, CachedApp> = {}
 
   const stats: Stats = {
     bytesDownloaded: 0,
@@ -67,7 +54,6 @@ export async function parseLogFile(): Promise<Stats> {
     if (result === 'HIT')
       stats.bytesReused += parseInt(byte)
 
-    const { game, hash } = endpointParse(service as Services, endpoint)
     const parsedDate = dayjs(datetime, TIME_FORMAT);
     const timestamp = parsedDate.valueOf();
 
@@ -77,14 +63,14 @@ export async function parseLogFile(): Promise<Stats> {
       active[service] = {}
 
     if (service === 'steam') {
-      // here game is depot
+      const depotId = endpoint.split('/')[2]
 
-      if (!(game in STEAM_DEPOT_MAP)) {
-        const depot = await getAppFromDepot(game)
-        STEAM_DEPOT_MAP[game] = depot
+      if (!(depotId in STEAM_DEPOT_MAP)) {
+        const depot = await getAppData(service, depotId)
+        STEAM_DEPOT_MAP[depotId] = depot
       }
 
-      const appId = STEAM_DEPOT_MAP[game].appId
+      const appId = STEAM_DEPOT_MAP[depotId].appId
 
       if (!(appId in active[service])) {
         active[service][appId] = {
@@ -92,14 +78,14 @@ export async function parseLogFile(): Promise<Stats> {
           startedAtString: datetime,
           lastSeen: timestamp,
           bytesDownloaded: 0,
-          depots: [game]
+          depots: [depotId]
         } satisfies ActiveDownload
       }
 
       if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF) {
         active[service][appId].lastSeen = timestamp
         active[service][appId].bytesDownloaded += parseInt(byte)
-        if (!active[service][appId].depots.includes(game)) active[service][appId].depots.push(game)
+        if (!active[service][appId].depots.includes(depotId)) active[service][appId].depots.push(depotId)
       } else {
         const app = {
           startedAt: active[service][appId].startedAt,
@@ -108,8 +94,8 @@ export async function parseLogFile(): Promise<Stats> {
           bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId.toString(),
-          appImage: STEAM_DEPOT_MAP[game].appImage,
-          appName: STEAM_DEPOT_MAP[game].appName,
+          appImage: STEAM_DEPOT_MAP[depotId].appImage,
+          appName: STEAM_DEPOT_MAP[depotId].appName,
           depots: active[service][appId].depots
         } as Download
 
@@ -120,13 +106,23 @@ export async function parseLogFile(): Promise<Stats> {
           startedAtString: datetime,
           lastSeen: timestamp,
           bytesDownloaded: parseInt(byte),
-          depots: [game]
+          depots: [depotId]
         }
       }
     }
 
     if (service === 'epicgames') {
-      const [, , appId] = endpoint.split('/')
+
+      let appId = ''
+
+      if (endpoint.split('/')[2] === 'Org'){
+        appId = endpoint.split('/')[4]
+      } else {
+        switch (endpoint.split('/')[2]){
+          case 'Fortnite':
+            appId = 'prod-fn'
+        }
+      }
 
       if (!(appId in active[service])){
         active[service][appId] = {
@@ -142,6 +138,7 @@ export async function parseLogFile(): Promise<Stats> {
         active[service][appId].lastSeen = timestamp
         active[service][appId].bytesDownloaded += parseInt(byte)
       } else {
+        const appData = await getAppData(service, appId)
         const app = {
           startedAt: active[service][appId].startedAt,
           startedAtString: active[service][appId].startedAtString,
@@ -149,8 +146,8 @@ export async function parseLogFile(): Promise<Stats> {
           bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId,
-          appImage: "",
-          appName: appId,
+          appImage: appData.appImage,
+          appName: appData.appName,
           depots: []
         } as Download
 
@@ -167,7 +164,7 @@ export async function parseLogFile(): Promise<Stats> {
     }
 
     if (service === 'blizzard') {
-      const [, , appId] = endpoint.split('/')
+      const appId = endpoint.split('/')[2]
 
       if (!(appId in active[service])){
         active[service][appId] = {
@@ -183,6 +180,7 @@ export async function parseLogFile(): Promise<Stats> {
         active[service][appId].lastSeen = timestamp
         active[service][appId].bytesDownloaded += parseInt(byte)
       } else {
+        const appData = await getAppData(service, appId)
         const app = {
           startedAt: active[service][appId].startedAt,
           startedAtString: active[service][appId].startedAtString,
@@ -190,8 +188,8 @@ export async function parseLogFile(): Promise<Stats> {
           bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId,
-          appImage: "",
-          appName: getBattlenetAppName(appId),
+          appImage: appData.appImage,
+          appName: appData.appName,
           depots: []
         } as Download
 
@@ -216,7 +214,7 @@ export async function parseLogFile(): Promise<Stats> {
           startedAtString: datetime,
           lastSeen: timestamp,
           bytesDownloaded: 0,
-          depots: [game]
+          depots: []
         } satisfies ActiveDownload
       }
 
@@ -224,6 +222,7 @@ export async function parseLogFile(): Promise<Stats> {
         active[service][appId].lastSeen = timestamp
         active[service][appId].bytesDownloaded += parseInt(byte)
       } else {
+        const appData = await getAppData(service, appId)
         const app = {
           startedAt: active[service][appId].startedAt,
           startedAtString: active[service][appId].startedAtString,
@@ -231,8 +230,8 @@ export async function parseLogFile(): Promise<Stats> {
           bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId,
-          appImage: "",
-          appName: appId,
+          appImage: appData.appImage,
+          appName: appData.appName,
           depots: []
         } as Download
 
@@ -257,7 +256,7 @@ export async function parseLogFile(): Promise<Stats> {
           startedAtString: datetime,
           lastSeen: timestamp,
           bytesDownloaded: 0,
-          depots: [game]
+          depots: []
         } satisfies ActiveDownload
       }
 
@@ -265,6 +264,7 @@ export async function parseLogFile(): Promise<Stats> {
         active[service][appId].lastSeen = timestamp
         active[service][appId].bytesDownloaded += parseInt(byte)
       } else {
+        const appData = await getAppData(service, appId)
         const app = {
           startedAt: active[service][appId].startedAt,
           startedAtString: active[service][appId].startedAtString,
@@ -272,8 +272,8 @@ export async function parseLogFile(): Promise<Stats> {
           bytesDownloaded: active[service][appId].bytesDownloaded,
           service: service,
           app: appId,
-          appImage: "",
-          appName: appId,
+          appImage: appData.appImage,
+          appName: appData.appName,
           depots: []
         } as Download
 
@@ -293,38 +293,40 @@ export async function parseLogFile(): Promise<Stats> {
   }
 
   for (const service in activeDownloads) {
-    for (const app in activeDownloads[service]) {
+    for (const appId in activeDownloads[service]) {
 
       if (service === 'steam'){
-        let depot = ''
-        for (const _depot in STEAM_DEPOT_MAP) {
-          if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
-            depot = _depot
+        let depotId = ''
+        for (const _depotId in STEAM_DEPOT_MAP) {
+          if (STEAM_DEPOT_MAP[_depotId].appId.toString() === appId) {
+            depotId = _depotId
             break
           }
         }
 
         stats.downloads.push({
-          startedAt: activeDownloads[service][app].startedAt,
-          startedAtString: activeDownloads[service][app].startedAtString,
-          endedAt: activeDownloads[service][app].lastSeen,
-          bytesDownloaded: activeDownloads[service][app].bytesDownloaded,
+          startedAt: activeDownloads[service][appId].startedAt,
+          startedAtString: activeDownloads[service][appId].startedAtString,
+          endedAt: activeDownloads[service][appId].lastSeen,
+          bytesDownloaded: activeDownloads[service][appId].bytesDownloaded,
           service,
-          app: app,
-          appImage: STEAM_DEPOT_MAP[depot].appImage,
-          appName: STEAM_DEPOT_MAP[depot].appName,
-          depots: activeDownloads[service][app].depots
+          app: appId,
+          appImage: STEAM_DEPOT_MAP[depotId].appImage,
+          appName: STEAM_DEPOT_MAP[depotId].appName,
+          depots: activeDownloads[service][appId].depots
         })
       } else {
+        const app = await getAppData(service as Service, appId)
+
         stats.downloads.push({
-          startedAt: activeDownloads[service][app].startedAt,
-          startedAtString: activeDownloads[service][app].startedAtString,
-          endedAt: activeDownloads[service][app].lastSeen,
-          bytesDownloaded: activeDownloads[service][app].bytesDownloaded,
+          startedAt: activeDownloads[service][appId].startedAt,
+          startedAtString: activeDownloads[service][appId].startedAtString,
+          endedAt: activeDownloads[service][appId].lastSeen,
+          bytesDownloaded: activeDownloads[service][appId].bytesDownloaded,
           service,
-          app: app,
-          appImage: "",
-          appName: service === 'blizzard' ? getBattlenetAppName(app) : app,
+          app: appId,
+          appImage: app.appImage,
+          appName: app.appName,
           depots: []
         })
       }
@@ -334,38 +336,40 @@ export async function parseLogFile(): Promise<Stats> {
   }
 
   for (const service in activeReuses) {
-    for (const app in activeReuses[service]) {
+    for (const appId in activeReuses[service]) {
 
       if (service === 'steam'){
-        let depot = ''
-        for (const _depot in STEAM_DEPOT_MAP) {
-          if (STEAM_DEPOT_MAP[_depot].appId.toString() === app) {
-            depot = _depot
+        let depotId = ''
+        for (const _depotId in STEAM_DEPOT_MAP) {
+          if (STEAM_DEPOT_MAP[_depotId].appId.toString() === appId) {
+            depotId = _depotId
             break
           }
         }
 
         stats.reuses.push({
-          startedAt: activeReuses[service][app].startedAt,
-          startedAtString: activeReuses[service][app].startedAtString,
-          endedAt: activeReuses[service][app].lastSeen,
-          bytesDownloaded: activeReuses[service][app].bytesDownloaded,
+          startedAt: activeReuses[service][appId].startedAt,
+          startedAtString: activeReuses[service][appId].startedAtString,
+          endedAt: activeReuses[service][appId].lastSeen,
+          bytesDownloaded: activeReuses[service][appId].bytesDownloaded,
           service,
-          app: app,
-          appImage: STEAM_DEPOT_MAP[depot].appImage,
-          appName: STEAM_DEPOT_MAP[depot].appName,
-          depots: activeReuses[service][app].depots
+          app: appId,
+          appImage: STEAM_DEPOT_MAP[depotId].appImage,
+          appName: STEAM_DEPOT_MAP[depotId].appName,
+          depots: activeReuses[service][appId].depots
         })
       } else {
+        const app = await getAppData(service as Service, appId)
+
         stats.reuses.push({
-          startedAt: activeReuses[service][app].startedAt,
-          startedAtString: activeReuses[service][app].startedAtString,
-          endedAt: activeReuses[service][app].lastSeen,
-          bytesDownloaded: activeReuses[service][app].bytesDownloaded,
+          startedAt: activeReuses[service][appId].startedAt,
+          startedAtString: activeReuses[service][appId].startedAtString,
+          endedAt: activeReuses[service][appId].lastSeen,
+          bytesDownloaded: activeReuses[service][appId].bytesDownloaded,
           service,
-          app: app,
-          appImage: "",
-          appName: service === 'blizzard' ? getBattlenetAppName(app) : app,
+          app: appId,
+          appImage: app.appImage,
+          appName: app.appName,
           depots: []
         })
       }
@@ -378,9 +382,41 @@ export async function parseLogFile(): Promise<Stats> {
   return stats
 }
 
-const getAppFromDepot = async (depotId: string): Promise<RedisDepot> => {
-  const res = await redis.get(`depot:${depotId}`)
-  return res ? JSON.parse(res) : { appId: 0, appName: "Unknown", appImage: '' }
+
+const getAppData = async (service: Service, appId: string): Promise<CachedApp> => {
+  const cached = await redis.get(`apps:${service}:${appId}`)
+
+  if (cached)
+    return JSON.parse(cached)
+
+
+  let app = { appId: "0", appName: "Unknown", appImage: '' }
+  let res;
+  switch (service) {
+    case 'epicgames':
+      res = await fetch(`https://egs-platform-service.store.epicgames.com/api/v1/egs/products/${appId}?country=US&locale=en-US&store=EGS`)
+      if (res.status === 200){
+        const { title, media: { card16x9: { imageSrc: imageUrl} } } = await res.json()
+        app = { appId, appName: title, appImage: imageUrl }
+      }
+      await redis.set(`apps:${service}:${appId}`, JSON.stringify(app))
+      break;
+    case 'blizzard':
+      if (appId === 'hs') appId = 'hsb'
+      res = await fetch(`https://blizztrack.com/api/manifest/${appId}/cdns`)
+      if (res.status === 200){
+        const { result: { name } } = await res.json()
+        app = { appId, appName: name, appImage: '' }
+      }
+      await redis.set(`apps:${service}:${appId}`, JSON.stringify(app))
+      break;
+    case 'riot':
+      return { appId, appName: appId === 'valorant' ? 'Valorant' : 'Unknown', appImage: '' }
+    case 'wsus':
+      return { appId, appName: 'Windows Update', appImage : '' }
+  }
+
+  return app
 }
 
 const getGameLogs = (logs: string[], type: 'reuse' | 'download', service: string, startedAtString: string, depots: string[]): Set<string> => {

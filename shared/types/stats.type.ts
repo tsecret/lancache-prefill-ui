@@ -19,8 +19,8 @@ export type ActiveDownload = {
   depots: string[]
 }
 
-export type RedisDepot = {
-  appId: number
+export type CachedApp = {
+  appId: string
   appName: string
   appImage: string
 }

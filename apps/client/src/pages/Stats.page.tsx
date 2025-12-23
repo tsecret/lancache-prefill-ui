@@ -66,8 +66,9 @@ const Table = ({ data }: { data: Stats }) => {
           <li className="list-row" key={i}>
             <div><img className="w-32 rounded-box" src={app.appImage}/></div>
             <div>
-              <div>{app.appName}</div>
+              <div className="font-bold">{app.appName}</div>
               <div className="text-xs uppercase font-semibold opacity-60">{humanFileSize(app.bytesDownloaded)}</div>
+              <div className="text-xs uppercase font-bold opacity-25">{app.service.toUpperCase()}</div>
             </div>
 
             <div className="flex flex-col">

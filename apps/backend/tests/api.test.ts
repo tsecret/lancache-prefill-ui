@@ -210,7 +210,7 @@ describe('Stats', () => {
       const stats = await parseLogFile()
       expect(stats.downloads.length).toBe(1)
       expect(stats.downloads[0].bytesDownloaded).toBe(10541496)
-      expect(stats.downloads[0].appName).toBe('valorant')
+      expect(stats.downloads[0].appName).toBe('Valorant')
     })
 
     it('Game Reuse', async () => {
@@ -218,7 +218,7 @@ describe('Stats', () => {
       const stats = await parseLogFile()
       expect(stats.reuses.length).toBe(1)
       expect(stats.reuses[0].bytesDownloaded).toBe(10541496)
-      expect(stats.reuses[0].appName).toBe('valorant')
+      expect(stats.reuses[0].appName).toBe('Valorant')
     })
   })
 

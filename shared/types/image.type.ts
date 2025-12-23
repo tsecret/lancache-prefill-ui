@@ -12,8 +12,4 @@ export enum ImageTag {
   BATTLENET = 'tsecretino/battlenet-lancache-prefill-raspi'
 }
 
-export enum Services {
-  STEAM = 'steam',
-  EPIC = 'epic',
-  BATTLENET = 'battlenet'
-}
+export type Service = 'steam' | 'epicgames' | 'blizzard' | 'riot' | 'wsus'

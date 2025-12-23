@@ -67,7 +67,7 @@ app.route('/api/settings', settings);
 
 (async () => {
 
-  const lastCheckS = await redis.get('depot:check_timestamp')
+  const lastCheckS = await redis.get('apps:check_timestamp')
   const lastCheck = parseInt(lastCheckS || '0')
 
   if (+new Date() - lastCheck < 24 * 60 * 60 * 1000)
@@ -77,7 +77,7 @@ app.route('/api/settings', settings);
   const res = await fetch('https://raw.githubusercontent.com/regix1/lancache-pics/refs/heads/main/output/pics_depot_mappings.json')
   const mapping = await res.json()
 
-  await Promise.all(Object.keys(mapping.depotMappings).map(depot => redis.set(`depot:${depot}`, JSON.stringify({
+  await Promise.all(Object.keys(mapping.depotMappings).map(depot => redis.set(`apps:steam:${depot}`, JSON.stringify({
     appId: mapping.depotMappings[depot].ownerId,
     appName: mapping.depotMappings[depot].appNames[0],
     appImage: mapping.depotMappings[depot].appHeaderImages[0],
