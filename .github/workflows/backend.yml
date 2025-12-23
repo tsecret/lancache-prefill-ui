@@ -5,14 +5,12 @@ on:
     paths:
         - "apps/backend/**"
         - "shared/**"
+        - ".github/workflows/backend.yml"
     branches: [ "main" ]
   pull_request:
 
 jobs:
   test:
-    strategy:
-      matrix:
-        platforms: [ linux/arm64, linux/amd64 ]
     name: Run Bun Tests
     runs-on: ubuntu-latest
 
@@ -40,7 +38,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU for ARM emulation
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -52,11 +50,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image for ARM64
+      - name: Build Docker
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.backend
-          platforms: ${{ matrix.platforms }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: tsecretino/lancache-manager-backend
