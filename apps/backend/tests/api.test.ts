@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest, mock, setSystemTime } from 'bun:test'
-import { Container, Settings, Stats } from 'shared/types'
+import { Container, Settings } from 'shared/types'
 import containersApp from '../src/routes/containers'
 import devicesApp from '../src/routes/devices'
 import gamesApp from '../src/routes/games'
@@ -7,21 +7,22 @@ import statsApp, { parseLogFile } from '../src/routes/stats'
 import { isAllowedToDownload } from '../src/utils'
 import containers from './fixtures/docker/containers.json'
 
+import deleteBlizzard from './fixtures/logs/delete_blizzard.log'
+import deleteEpic from './fixtures/logs/delete_epic.log'
+import deleteMultiple from './fixtures/logs/delete_multiple.log'
+import deleteRiot from './fixtures/logs/delete_riot.log'
+import deleteSteam from './fixtures/logs/delete_steam.log'
+import deleteSteamZeroBytes from './fixtures/logs/delete_steam_zero_bytes.log'
 import downloadAndReuseLog from './fixtures/logs/download_and_reuse.log'
 import downloadBattlenet from './fixtures/logs/download_battlenet.log'
 import downloadEpic from './fixtures/logs/download_epic.log'
 import downloadMixed from './fixtures/logs/download_mixed.log'
 import downloadMultipleLog from './fixtures/logs/download_multiple_games.log'
+import downloadRiot from './fixtures/logs/download_riot.log'
 import downloadSingleLog from './fixtures/logs/download_single_game.log'
 import reuseBattlenet from './fixtures/logs/reuse_battlenet.log'
 import reuseEpic from './fixtures/logs/reuse_epic.log'
 import reuseMultiple from './fixtures/logs/reuse_multiple.log'
-import deleteEpic from './fixtures/logs/delete_epic.log'
-import deleteSteam from './fixtures/logs/delete_steam.log'
-import deleteSteamZeroBytes from './fixtures/logs/delete_steam_zero_bytes.log'
-import deleteBlizzard from './fixtures/logs/delete_blizzard.log'
-import deleteRiot from './fixtures/logs/delete_riot.log'
-import downloadRiot from './fixtures/logs/download_riot.log'
 import reuseRiot from './fixtures/logs/reuse_riot.log'
 
 
@@ -143,8 +144,16 @@ describe('Stats', () => {
       expect((await res.json()).paths).toEqual(expected)
     })
 
-  })
+    it('Delete app with multiple app logs', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(deleteMultiple).text() }))
+      const stats = await parseLogFile()
 
+      const res = await statsApp.request('/download', { method: 'DELETE', body: JSON.stringify({ service: 'steam', startedAtString: stats.downloads[0].startedAtString, depots: stats.downloads[0].depots }) })
+      expect((await res.json()).deletedLines).toBe(4)
+
+    })
+
+  })
 
   describe('Epic', () => {
 

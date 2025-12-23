@@ -1,0 +1,9 @@
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:06 +0100] "GET /depot/1/chunk/fbe040d9cfb155436de5902c64d8031730b6b1cc HTTP/1.1" 200 1048864 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:06 +0100] "GET /depot/1/chunk/a07011e8d694d9135a163f1aa7c023a9e50aab31 HTTP/1.1" 200 1048864 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:06 +0100] "GET /depot/1/chunk/1bc8ff67d8c62afd40691d50d1257eefed06defd HTTP/1.1" 200 1048864 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:06 +0100] "GET /depot/1/chunk/c3bacbac20be26ab8fd440879b3787096e40c221 HTTP/1.1" 200 1048864 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:09 +0100] "GET /depot/2/chunk/ebc9294dd132fe3f1fb4a2677c310dda13548904 HTTP/1.1" 200 9520 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:09 +0100] "GET /depot/2/chunk/7d760e1811f5893122659434e2b2da0128210d6e HTTP/1.1" 200 256 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:09 +0100] "GET /depot/2/chunk/2e8333ed309b1a3fc3b082693bb351dfe44ba9dd HTTP/1.1" 200 448 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
+[steam] 172.18.0.1 / - - - [23/Dec/2025:03:42:09 +0100] "GET /depot/2/chunk/f2485773a5c1617a77f39de864166226e5bbce74 HTTP/1.1" 200 304 "-" "Valve/Steam HTTP Client 1.0" "MISS" "google2.cdn.steampipe.steamcontent.com" "-"
