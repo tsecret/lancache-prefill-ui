@@ -24,6 +24,8 @@ import reuseBattlenet from './fixtures/logs/reuse_battlenet.log'
 import reuseEpic from './fixtures/logs/reuse_epic.log'
 import reuseMultiple from './fixtures/logs/reuse_multiple.log'
 import reuseRiot from './fixtures/logs/reuse_riot.log'
+import downloadWindows from './fixtures/logs/download_windows.log'
+import deleteWindows from './fixtures/logs/delete_windows.log'
 
 
 describe('Docker', () => {
@@ -130,7 +132,7 @@ describe('Stats', () => {
       expect((await res.json()).paths).toEqual(expected)
     })
 
-    it.skip('Delete riot', async () => {
+    it('Delete riot', async () => {
       mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(deleteRiot).text() }))
       const stats = await parseLogFile()
 
@@ -153,6 +155,13 @@ describe('Stats', () => {
 
     })
 
+    it('Delete windows', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(deleteWindows).text() }))
+      const stats = await parseLogFile()
+
+      const res = await statsApp.request('/download', { method: 'DELETE', body: JSON.stringify({ service: 'wsus', startedAtString: stats.downloads[0].startedAtString, depots: stats.downloads[0].depots }) })
+      expect((await res.json()).paths).toEqual(['95/df/ce88f68741ae272d02af2ac6f5f1df95'])
+    })
   })
 
   describe('Epic', () => {
@@ -210,6 +219,17 @@ describe('Stats', () => {
       expect(stats.reuses.length).toBe(1)
       expect(stats.reuses[0].bytesDownloaded).toBe(10541496)
       expect(stats.reuses[0].appName).toBe('valorant')
+    })
+  })
+
+  describe('Windows', () => {
+    it('Download Windows', async () => {
+      mock.module('../src/routes/stats.ts', () => ({ readLogFile: async () => await Bun.file(downloadWindows).text() }))
+      const stats = await parseLogFile()
+
+      expect(stats.downloads[0].app).toBe('Windows')
+      expect(stats.downloads[0].bytesDownloaded).toBe(3000)
+
     })
   })
 })

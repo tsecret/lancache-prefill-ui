@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 dayjs.extend(customParseFormat);
 
 const app = new Hono()
-const REGEX = /\[(\w+)] (\d+.\d+.\d+.\d+) \/ - - - \[(.*)] "GET (.*) HTTP\/1.1" (\d+) (\d+) "-" "(.*)" "(\w+)" "(.*)" "(.*)"/
+const REGEX = /\[(\w+)] (\d+.\d+.\d+.\d+) \/ - - - \[(.*)] "GET (.*) HTTP\/1.1" (\d+) (\d+) "(.*)" "(.*)" "(.*)" "(.*)" "(.*)"/
 const TIME_FORMAT = "DD/MMM/YYYY:HH:mm:ss Z";
 const LAST_SEEN_DIFF = 3 * 60 * 1000
 
@@ -57,7 +57,7 @@ export async function parseLogFile(): Promise<Stats> {
 
     if (!match) continue
 
-    const [, service, ip, datetime, endpoint, statusCode, byte, client, result, host] = match
+    const [, service, ip, datetime, endpoint, statusCode, byte, client, headers, result, host] = match
 
     if (!statusCode.startsWith('20')) continue
 
@@ -248,6 +248,48 @@ export async function parseLogFile(): Promise<Stats> {
       }
     }
 
+    if (service === 'wsus'){
+      const appId = 'Windows'
+
+      if (!(appId in active[service])) {
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: 0,
+          depots: [game]
+        } satisfies ActiveDownload
+      }
+
+      if (timestamp - active[service][appId].lastSeen < LAST_SEEN_DIFF){
+        active[service][appId].lastSeen = timestamp
+        active[service][appId].bytesDownloaded += parseInt(byte)
+      } else {
+        const app = {
+          startedAt: active[service][appId].startedAt,
+          startedAtString: active[service][appId].startedAtString,
+          endedAt: active[service][appId].lastSeen,
+          bytesDownloaded: active[service][appId].bytesDownloaded,
+          service: service,
+          app: appId,
+          appImage: "",
+          appName: appId,
+          depots: []
+        } as Download
+
+        result === 'HIT' ? stats.reuses.push(app): stats.downloads.push(app)
+
+        active[service][appId] = {
+          startedAt: timestamp,
+          startedAtString: datetime,
+          lastSeen: timestamp,
+          bytesDownloaded: parseInt(byte),
+          depots: []
+        }
+      }
+
+    }
+
   }
 
   for (const service in activeDownloads) {
@@ -350,7 +392,7 @@ const getGameLogs = (logs: string[], type: 'reuse' | 'download', service: string
     const match = log.match(REGEX)
     if (!match) continue
 
-    const [, _service, ip, datetime, endpoint, statusCode, byte, client, _result, host] = match
+    const [, _service, ip, datetime, endpoint, statusCode, byte, client, headers, _result, host] = match
     if (service !== _service || !(type === 'download' ? (_result === 'MISS' || _result === 'BYPASS') : _result === 'HIT') ) continue
 
     if (!lastSeenTimestamp && datetime === startedAtString){
@@ -412,7 +454,7 @@ app.delete('/download', async (c) => {
 
     const match = log.match(REGEX)
     if (!match) continue
-    const [, service, , , endpoint, , _totalSize, , , host, byteRange] = match
+    const [, service, ip, datetime, endpoint, statusCode, _totalSize, client, headers, result, host, byteRange] = match
 
     const SLICE_SIZE = 1024 * 1024
     const totalSize = parseInt(_totalSize)
@@ -427,11 +469,12 @@ app.delete('/download', async (c) => {
       let start = lower
       let end = upper
 
-      start = start / SLICE_SIZE * SLICE_SIZE
-      while (start < end){
+      start = Math.floor(start / SLICE_SIZE) * SLICE_SIZE
+
+      while (start <= end){
         const segmentEnd = start + SLICE_SIZE - 1
         ranges.push([start, segmentEnd])
-        start = segmentEnd + 1
+        start += SLICE_SIZE
       }
     } else {
       if (totalSize === 0) {
@@ -446,6 +489,7 @@ app.delete('/download', async (c) => {
         }
       }
     }
+
 
     for (const range of ranges){
       const input = service + endpoint + `bytes=${range[0]}-${range[1]}`

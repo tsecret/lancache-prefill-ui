@@ -31,6 +31,7 @@ function humanFileSize(bytes: number, si=true, dp=1) {
 
 const Table = ({ data }: { data: Stats }) => {
   const [tab, setTab] = useState<'downloads' | 'reuses'>('downloads')
+  const [isDeleting, setDeleting] = useState(false)
 
   const mutation = useMutation({
     mutationFn: ({ type, app }: { type: 'download' | 'reuse', app: Download }) => {
@@ -42,11 +43,15 @@ const Table = ({ data }: { data: Stats }) => {
   })
 
   const onDeleteReuse = async (app: Download) => {
+    setDeleting(true)
     await mutation.mutateAsync({ type: 'reuse', app })
+    setDeleting(false)
   }
 
   const onDeleteDownload = async (app: Download) => {
+    setDeleting(true)
     await mutation.mutateAsync({ type: 'download', app })
+    setDeleting(false)
   }
 
   return (
@@ -71,7 +76,7 @@ const Table = ({ data }: { data: Stats }) => {
             </div>
 
             <div className="flex flex-col justify-center">
-              <button className="btn btn-error btn-sm btn-square" onClick={() => tab ==='downloads' ? onDeleteDownload(app) : onDeleteReuse(app) }><Trash2 size={16} /></button>
+              <button className="btn btn-error btn-sm btn-square" disabled={isDeleting} onClick={() => tab ==='downloads' ? onDeleteDownload(app) : onDeleteReuse(app) }><Trash2 size={16} /></button>
             </div>
           </li>
         ))}
