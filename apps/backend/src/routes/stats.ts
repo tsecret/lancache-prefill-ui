@@ -1,12 +1,9 @@
-import { Hono } from 'hono'
-import { ActiveDownload, Download, CachedApp, Stats, type Service } from 'shared/types'
+import { getLogger } from '@logtape/logtape';
+import { fetch, redis } from 'bun';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { fetch, redis } from 'bun';
-import { rm } from "node:fs/promises";
-import { getLogger } from '@logtape/logtape';
-import { getBattlenetAppName } from '../utils';
-import { createHash } from 'node:crypto';
+import { Hono } from 'hono';
+import { ActiveDownload, CachedApp, Download, Stats, type Service } from 'shared/types';
 
 dayjs.extend(customParseFormat);
 
@@ -17,12 +14,33 @@ const LAST_SEEN_DIFF = 3 * 60 * 1000
 
 const logger = getLogger(['lancache-manager']);
 
-export async function readLogFile(filePath: string): Promise<string> {
-  return Bun.file(filePath).text()
+export function getLogPath(): string {
+  return `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+}
+
+export async function* readLogFile(filePath: string){
+    const reader = Bun.file(filePath).stream().pipeThrough(new TextDecoderStream('utf-8')).getReader()
+
+    let remainder = ''
+    while(true) {
+        const {value, done} = await reader.read()
+        if(done) break
+        let lines = (remainder + value).split(/\r?\n/)
+        remainder = lines.pop()!
+
+        for(const line of lines) {
+            yield line
+        }
+    }
+
+    if(remainder) {
+        yield remainder
+    }
 }
 
 export async function parseLogFile(): Promise<Stats> {
-  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+  const PATH = getLogPath()
+  console.log('PATH', PATH)
   const STEAM_DEPOT_MAP: Record<string, CachedApp> = {}
 
   const stats: Stats = {
@@ -35,11 +53,8 @@ export async function parseLogFile(): Promise<Stats> {
   let activeDownloads: Record<string, Record<string, ActiveDownload>> = {}
   let activeReuses: Record<string, Record<string, ActiveDownload>> = {}
 
-  const text = await readLogFile(PATH)
-  const logs = text.split('\n')
 
-
-  for (const line of logs) {
+  for await (const line of readLogFile(PATH)) {
     const match = line.match(REGEX)
 
     if (!match) continue
@@ -382,7 +397,6 @@ export async function parseLogFile(): Promise<Stats> {
   return stats
 }
 
-
 const getAppData = async (service: Service, appId: string): Promise<CachedApp> => {
   const cached = await redis.get(`apps:${service}:${appId}`)
 
@@ -452,7 +466,7 @@ const getGameLogs = (logs: string[], type: 'reuse' | 'download', service: string
 }
 
 const deleteLogs = async (logs: string[], appLogs: Set<string>) => {
-    const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+    const PATH = getLogPath()
     logger.info(`Deleting ${appLogs.size} log lines`)
     await Bun.write(PATH, logs.filter(log => !appLogs.has(log)).join('\n'))
 }
@@ -462,86 +476,82 @@ app.get('/', async (c) => {
 })
 
 app.delete('/reuse', async (c) => {
-  const body = await c.req.json()
-  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+  // const body = await c.req.json()
 
-  const text = await readLogFile(PATH)
-  const logs = text.split('\n')
+  // const appLogs = getGameLogs(logs, 'reuse', body.service, body.startedAtString, body.depots)
+  // await deleteLogs(logs, appLogs)
 
-  const appLogs = getGameLogs(logs, 'reuse', body.service, body.startedAtString, body.depots)
-  await deleteLogs(logs, appLogs)
-
-  return c.json({ deletedLines: appLogs.size })
+  // return c.json({ deletedLines: appLogs.size })
 })
 
 app.delete('/download', async (c) => {
-  const body = await c.req.json()
-  const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
+  // const body = await c.req.json()
+  // const PATH = `${Bun.env.LANCACHE_LOGS_PATH}/access.log`
 
-  const text = await readLogFile(PATH)
-  const logs = text.split('\n')
+  // const text = await readLogFile(PATH)
+  // const logs = text.split('\n')
 
-  const appLogs = getGameLogs(logs, 'download', body.service, body.startedAtString, body.depots)
+  // const appLogs = getGameLogs(logs, 'download', body.service, body.startedAtString, body.depots)
 
-  const promises = []
-  const paths: string[] = []
+  // const promises = []
+  // const paths: string[] = []
 
-  for (const log of appLogs.values()){
+  // for (const log of appLogs.values()){
 
-    const match = log.match(REGEX)
-    if (!match) continue
-    const [, service, ip, datetime, endpoint, statusCode, _totalSize, client, headers, result, host, byteRange] = match
+  //   const match = log.match(REGEX)
+  //   if (!match) continue
+  //   const [, service, ip, datetime, endpoint, statusCode, _totalSize, client, headers, result, host, byteRange] = match
 
-    const SLICE_SIZE = 1024 * 1024
-    const totalSize = parseInt(_totalSize)
+  //   const SLICE_SIZE = 1024 * 1024
+  //   const totalSize = parseInt(_totalSize)
 
-    const ranges: [number, number][] = []
-
-
-    if (byteRange !== '-'){
-      const lower = parseInt(byteRange.split('=')[1].split('-')[0])
-      const upper = parseInt(byteRange.split('=')[1].split('-')[1])
-
-      let start = lower
-      let end = upper
-
-      start = Math.floor(start / SLICE_SIZE) * SLICE_SIZE
-
-      while (start <= end){
-        const segmentEnd = start + SLICE_SIZE - 1
-        ranges.push([start, segmentEnd])
-        start += SLICE_SIZE
-      }
-    } else {
-      if (totalSize === 0) {
-        ranges.push([0, SLICE_SIZE-1])
-      } else {
-        for (let start = 0; start < totalSize; start += SLICE_SIZE) {
-          let end = start + SLICE_SIZE - 1
-          if (end >= totalSize){
-            end = start + SLICE_SIZE - 1
-          }
-          ranges.push([start, end])
-        }
-      }
-    }
+  //   const ranges: [number, number][] = []
 
 
-    for (const range of ranges){
-      const input = service + endpoint + `bytes=${range[0]}-${range[1]}`
+  //   if (byteRange !== '-'){
+  //     const lower = parseInt(byteRange.split('=')[1].split('-')[0])
+  //     const upper = parseInt(byteRange.split('=')[1].split('-')[1])
 
-      const hash = createHash("md5").update(input).digest("hex")
+  //     let start = lower
+  //     let end = upper
 
-      const path = `${hash.slice(-2)}/${hash.slice(-4, -2)}/${hash}`
-      paths.push(path)
-      promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${path}`, { force: true }))
-    }
-  }
+  //     start = Math.floor(start / SLICE_SIZE) * SLICE_SIZE
 
-  await Promise.all(promises)
-  await deleteLogs(logs, appLogs)
+  //     while (start <= end){
+  //       const segmentEnd = start + SLICE_SIZE - 1
+  //       ranges.push([start, segmentEnd])
+  //       start += SLICE_SIZE
+  //     }
+  //   } else {
+  //     if (totalSize === 0) {
+  //       ranges.push([0, SLICE_SIZE-1])
+  //     } else {
+  //       for (let start = 0; start < totalSize; start += SLICE_SIZE) {
+  //         let end = start + SLICE_SIZE - 1
+  //         if (end >= totalSize){
+  //           end = start + SLICE_SIZE - 1
+  //         }
+  //         ranges.push([start, end])
+  //       }
+  //     }
+  //   }
 
-  return c.json({ deletedLines: appLogs.size, paths })
+
+  //   for (const range of ranges){
+  //     const input = service + endpoint + `bytes=${range[0]}-${range[1]}`
+
+  //     const hash = createHash("md5").update(input).digest("hex")
+
+  //     const path = `${hash.slice(-2)}/${hash.slice(-4, -2)}/${hash}`
+  //     paths.push(path)
+  //     promises.push(rm(`${Bun.env.LANCACHE_CACHE_PATH}/cache/${path}`, { force: true }))
+  //   }
+  // }
+
+  // await Promise.all(promises)
+  // await deleteLogs(logs, appLogs)
+
+  // return c.json({ deletedLines: appLogs.size, paths })
 })
 
 export default app
